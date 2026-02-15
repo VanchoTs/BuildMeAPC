@@ -53,3 +53,28 @@ Price (EUR): {price}
 
 Return only valid JSON matching the required keys. Use numbers for numeric fields and null when unknown.
 """
+
+RAM_PROMPT = """
+You are a hardware expert.
+Extract RAM information from the provided product page content and return valid JSON.
+
+Required fields (use these exact keys):
+- brand (string, e.g. "Kingston", "Corsair", "G.SKILL")
+- model (short product model, e.g. "Vengeance LPX", "Fury Beast")
+- memory_type (string, one of "DDR3", "DDR4", "DDR5")
+- memory_amount (string, include kit details like "2x16GB" or "1x16GB")
+- memory_speed_mhz (integer, e.g. 3200, 6000)
+- latency (string, e.g. "CL16")
+- form_factor (string, "Laptop" for SO-DIMM, "PC" for DIMM/UDIMM)
+- price (number, EUR)
+
+Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate. If a kit contains multiple modules, ensure memory_amount reflects that. Use "Laptop" for SO-DIMM and "PC" for DIMM/UDIMM.
+
+Content:
+{content}
+
+Product name: {name}
+Price (EUR): {price}
+
+Return only valid JSON matching the required keys. Use numbers for numeric fields and null when unknown.
+"""
