@@ -1,5 +1,6 @@
 import json
 import os
+from ai.llm_utils import LLMConfigurationError, get_llm_ctx, run_llm_completion
 from ai.prompts import GPU_PROMPT
 from ai.loader import load_llm
 
@@ -9,13 +10,16 @@ _llm = None
 def _get_llm():
     global _llm
     if _llm is None:
-        _llm = load_llm()
+        try:
+            _llm = load_llm()
+        except Exception as exc:
+            raise LLMConfigurationError(f"Failed to load LLM: {exc}") from exc
     return _llm
 
 
 def _prepare_llm_content(content: str) -> str:
     max_chars_env = int(os.environ.get("LLM_INPUT_MAX_CHARS", "6000"))
-    n_ctx = int(os.environ.get("LLM_CTX", "2048"))
+    n_ctx = get_llm_ctx()
     max_chars = min(max_chars_env, max(1000, n_ctx * 3))
     if not content:
         return ""
@@ -122,58 +126,17 @@ def parse_gpu(html: str, name: str, price: float, url: str) -> dict:
         return data
 
     llm = _get_llm()
-
-    def _estimate_prompt_tokens(prompt: str) -> int:
-        try:
-            if hasattr(llm, "tokenize"):
-                return len(llm.tokenize(prompt.encode("utf-8")))
-        except Exception:
-            pass
-        return max(1, len(prompt) // 4)
-
-    def _fit_content_to_ctx(content_text: str, max_tokens: int) -> tuple[str, str]:
-        n_ctx = int(os.environ.get("LLM_CTX", "2048"))
-        reserved = max(128, int(max_tokens * 1.5))
-        budget = max(256, n_ctx - reserved)
-        for _ in range(6):
-            prompt = GPU_PROMPT.format(content=content_text, name=name, price=price)
-            tokens = _estimate_prompt_tokens(prompt)
-            if tokens <= budget or len(content_text) <= 400:
-                return content_text, prompt
-            ratio = budget / max(tokens, 1)
-            if ratio >= 0.95:
-                new_len = max(400, len(content_text) - 500)
-            else:
-                new_len = max(400, int(len(content_text) * ratio))
-            if new_len >= len(content_text):
-                new_len = max(400, len(content_text) - 500)
-            content_text = content_text[:new_len]
-        prompt = GPU_PROMPT.format(content=content_text, name=name, price=price)
-        return content_text, prompt
-
-    raw_response = None
-    last_exc = None
     max_tokens = int(os.environ.get("LLM_MAX_TOKENS", "320"))
-    for _ in range(3):
-        try:
-            content, prompt = _fit_content_to_ctx(content, max_tokens)
-            resp = llm(prompt, max_tokens=max_tokens)
-            if isinstance(resp, dict) and "choices" in resp and resp["choices"]:
-                raw_response = resp["choices"][0].get("text") or resp["choices"][0].get(
-                    "message", {}
-                ).get("content")
-            else:
-                raw_response = str(resp)
-            break
-        except Exception as e:
-            last_exc = e
-            msg = str(e).lower()
-            if any(k in msg for k in ("context", "token", "exceed", "too large")):
-                if len(content) > 400:
-                    content = content[: max(400, len(content) // 2)]
-                max_tokens = max(160, int(max_tokens * 0.7))
-    if raw_response is None:
-        raise RuntimeError("LLM failed to produce a response") from last_exc
+    raw_response = run_llm_completion(
+        llm,
+        lambda content_text: GPU_PROMPT.format(
+            content=content_text, name=name, price=price
+        ),
+        content,
+        max_tokens,
+        retries=3,
+        min_max_tokens=160,
+    )
 
     start = raw_response.find("{")
     end = raw_response.rfind("}")

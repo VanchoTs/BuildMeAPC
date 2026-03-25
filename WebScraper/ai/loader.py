@@ -1,10 +1,11 @@
 import os
 from llama_cpp import Llama, llama_cpp
+from ai.llm_utils import get_llm_ctx
 
 
 def load_llm():
     model_path = os.environ.get("LLM_MODEL_PATH", "models_data/mistral-7b.gguf")
-    n_ctx = int(os.environ.get("LLM_CTX", "2048"))
+    n_ctx = get_llm_ctx()
     n_threads = int(os.environ.get("LLM_THREADS", "6"))
     gpu_layers_env = os.environ.get("LLM_GPU_LAYERS")
     if gpu_layers_env is None or gpu_layers_env.lower() == "auto":
