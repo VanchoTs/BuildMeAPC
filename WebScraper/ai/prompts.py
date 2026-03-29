@@ -170,7 +170,7 @@ Required fields (use these exact keys):
 Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate.
 For brand, return only the SSD vendor token. If the title/spec rows omit the vendor but a breadcrumb/category trail clearly names the SSD vendor, you may use that breadcrumb vendor as the fallback brand.
 Skip products that are HDDs, external drives, enclosures, brackets, adapters, caddies, docks, or heatsink-only accessories. Keep real SSDs that include an integrated heatsink. Interpret `Вътрешен/Външен` from the row value itself; the row title alone is not evidence that the drive is internal. If the source is not an eligible internal SSD, return null for the SSD fields instead of inventing values.
-`type` must be only "M.2" or "SATA". Map mSATA products to "SATA". Normalize capacities and speeds to integers. Normalize interfaces such as `PCIe NVMe 5.0 x4`, `NVMe (PCIe Gen 5 x4)`, and `PCI Express 4.0 x4 (NVMe)` to `PCIe Gen 5 x4` / `PCIe Gen 4 x4` style. Normalize SATA interfaces like `SATA III 6Gb/s`. If interface detail is missing but `type` is known, return the coarse fallback `PCIe` for `M.2` and `SATA` for `SATA`. Normalize NAND values exactly as `Triple-Level Cell` -> `TLC`, `Samsung V-NAND 3-bit MLC` -> `V-NAND`, `3D NAND TLC` -> `NAND`, and `NAND Flash` -> `NAND`. Deterministic parser guard rails still decide final skip rules, type classification, and final normalization, so do not guess when the source is ambiguous.
+`type` must be only "M.2" or "SATA". Map mSATA products to "SATA". Normalize capacities and speeds to integers. Normalize interfaces such as `PCIe NVMe 5.0 x4`, `NVMe (PCIe Gen 5 x4)`, and `PCI Express 4.0 x4 (NVMe)` to `PCIe Gen 5 x4` / `PCIe Gen 4 x4` style. Normalize SATA interfaces like `SATA III 6Gb/s`. If interface detail is missing but `type` is known, return the coarse fallback `PCIe` for `M.2` and `SATA` for `SATA`. When a string contains both capacity and endurance numbers, prefer the `TBW`-labeled value over capacity text, for example `2TB:1200TBW` should return `1200` for TBW, not `2`. If TBW is written in PB, convert it to decimal TB before returning it, for example `1 PB` -> `1000`. Interpret grouped thousands separators in TBW values correctly, for example `1,480TB` -> `1480`. Normalize NAND values so explicit cell-type wording collapses to the cell type: `Triple-Level Cell` -> `TLC`, `NAND TLC` -> `TLC`, `QLC NAND` and `Quad-level cell (QLC)` -> `QLC`, `Single-Level Cell` -> `SLC`, and `3D multi-level cell (MLC)` -> `MLC`. Normalize `3D NAND`, `3D NAND flash`, and `3D NAND Flash` to `NAND`. Keep Samsung V-NAND labels as `V-NAND`, for example `Samsung V-NAND 3-bit MLC` -> `V-NAND`. Keep `NAND Flash` as `NAND`. Treat placeholders such as `NVMe` and `NVMe M.2` as missing NAND and return null instead of echoing them back. Deterministic parser guard rails still decide final skip rules, type classification, and final normalization, so do not guess when the source is ambiguous.
 Prefer the technical specification rows over marketing text. For physical size, prefer exact forms like `2280`, `22110`, `2.5"`, or `mSATA` over generic labels like `M.2`. Use read/write rows such as `Скорост на четене`, `Скорост на запис`, `Последователно четене`, and `Последователен запис` when present. Use TBW rows such as `Общо записани терабайти (TBW)` when present. Use NAND rows such as `Тип флаш памет` or `Тип на паметта` when present.
 
 Content:
@@ -181,4 +181,46 @@ Price (EUR): {price}
 Product URL: {url}
 
 Return only valid JSON matching the required keys. Use integers for numeric fields, booleans for `has_heatsink`, and null when unknown.
+"""
+
+
+PSU_PROMPT = """
+You are a hardware expert.
+Extract PSU information from the provided product page content and return valid JSON.
+
+Required fields (use these exact keys):
+- brand (string, e.g. "Corsair", "Seasonic", "MSI", "be quiet!", "Cooler Master")
+- model (short PSU model, e.g. "RM850x", "MAG A850GL", "FOCUS GX-750")
+- physical_size (string, normalized PSU form factor such as "ATX", "SFX", "SFX-L", "TFX", "Flex ATX", "ITX")
+- power_w (integer)
+- efficiency (string or null; keep the explicit efficiency percent/claim only when the source gives one, e.g. "90%", ">90%", "up to 91%")
+- certificate (string or null; e.g. "80 Plus Gold", "80 Plus Bronze", "Cybenetics Gold")
+- modularity (string or null; only "Modular", "Semi-modular", or "Not modular")
+- atx_standard (string or null; e.g. "ATX 3.0", "ATX 3.1", "ATX12V 2.52")
+- pcie5_ready (boolean or null)
+- has_12vhpwr (boolean or null)
+- fan_size_mm (integer or null)
+- warranty_months (integer or null)
+- price (number, EUR)
+- url (string)
+
+Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate.
+For brand, return only the PSU vendor token. If the title/spec rows omit the vendor but a breadcrumb/category trail clearly names the PSU vendor, you may use that breadcrumb vendor as the fallback brand.
+Skip non-PSU products such as UPS units, batteries, power cables, extensions, splitters, adapters, tester tools, brackets, and covers. If the source is not an actual PSU, return null for the PSU fields instead of inventing values.
+Parser-first deterministic logic decides final product eligibility and normalization. Do not invent values when the source is ambiguous.
+Normalize modularity to exactly `Modular`, `Semi-modular`, or `Not modular`.
+Normalize certificates like `80 Plus Gold`, `80 Plus Bronze`, `80 Plus Platinum`, `80 Plus Titanium`, `80 Plus White`, `80 Plus Standard`, and `Cybenetics Gold`.
+Keep `efficiency` separate from `certificate`; only put the explicit efficiency percent/claim in `efficiency`.
+Normalize power to integer watts, fan size to integer millimeters, and warranty to integer months.
+Detect ATX 3.x / ATX12V standard text, PCIe 5 readiness, and 12VHPWR / 12V-2x6 evidence only when the source states them explicitly.
+Prefer technical specification rows over marketing text. Use rows like `Мощност`, `Форм фактор`, `Ефективност`, `Сертификати`, `Модулен`, `Размер на вентилатора`, `Гаранция`, and any ATX / PCIe 5 / 12VHPWR support rows when present.
+
+Content:
+{content}
+
+Product name: {name}
+Price (EUR): {price}
+Product URL: {url}
+
+Return only valid JSON matching the required keys. Use integers for numeric fields, booleans for `pcie5_ready` and `has_12vhpwr`, and null when unknown.
 """
