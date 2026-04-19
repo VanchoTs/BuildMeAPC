@@ -1,0 +1,73 @@
+"""Single source of truth for PSU brand recognition and normalization."""
+
+# Canonical brand map: UPPERCASE_KEY -> Canonical Display Name
+# Sorted longest-first tokens are derived below for title matching.
+PSU_BRAND_MAP: dict[str, str] = {
+    # --- Existing brands (from original normalization + page parser) ---
+    "1STPLAYER": "1stPlayer",
+    "1ST PLAYER": "1stPlayer",
+    "ADATA": "ADATA",
+    "AEROCOOL": "AeroCool",
+    "ANTEC": "Antec",
+    "ASROCK": "ASRock",
+    "ASUS": "ASUS",
+    "BE QUIET": "be quiet!",
+    "BIOSTAR": "Biostar",
+    "CHIEFTEC": "Chieftec",
+    "COOLER MASTER": "Cooler Master",
+    "COOLERMASTER": "Cooler Master",
+    "CORSAIR": "Corsair",
+    "COUGAR": "Cougar",
+    "DEEPCOOL": "DeepCool",
+    "ENERMAX": "Enermax",
+    "EVGA": "EVGA",
+    "FORTRON": "FSP",
+    "FRACTAL DESIGN": "Fractal Design",
+    "FRACTAL": "Fractal Design",
+    "FSP": "FSP",
+    "GAMDIAS": "Gamdias",
+    "GIGABYTE": "GIGABYTE",
+    "INWIN": "InWin",
+    "IN WIN": "InWin",
+    "KOLINK": "Kolink",
+    "LIAN LI": "Lian Li",
+    "MONTECH": "Montech",
+    "MSI": "MSI",
+    "NZXT": "NZXT",
+    "SEASONIC": "Seasonic",
+    "SHARKOON": "Sharkoon",
+    "SILVERSTONE": "SilverStone",
+    "SUPER FLOWER": "Super Flower",
+    "SUPERFLOWER": "Super Flower",
+    "THERMALTAKE": "Thermaltake",
+    "XILENCE": "Xilence",
+    "ZALMAN": "Zalman",
+    # --- New consumer/gaming brands (found on pic.bg) ---
+    "AIGO": "Aigo",
+    "BITFENIX": "BitFenix",
+    "DARKFLASH": "darkFlash",
+    "ENDORFY": "Endorfy",
+    "GAMEMAX": "GameMax",
+    "GAME MAX": "GameMax",
+    "INTER-TECH": "Inter-Tech",
+    "INTERTECH": "Inter-Tech",
+    "MAKKI": "Makki",
+    "REDRAGON": "Redragon",
+    "SEGOTEP": "Segotep",
+    "SPIRE": "Spire",
+    "THERMALRIGHT": "Thermalright",
+    "TRENDSONIC": "Trendsonic",
+    "XIGMATEK": "Xigmatek",
+    "XPG": "XPG",
+    # --- Enterprise brands (confirmed by user) ---
+    "FUJITSU": "Fujitsu",
+    "HP": "HP",
+    "HPE": "HPE",
+    "HUAWEI": "Huawei",
+    "LENOVO": "Lenovo",
+    "SUPERMICRO": "Supermicro",
+}
+
+# Flat list sorted longest-first so multi-word brands match before substrings
+# (e.g. "COOLER MASTER" matches before "MASTER", "FRACTAL DESIGN" before "FRACTAL")
+PSU_BRAND_TOKENS: list[str] = sorted(PSU_BRAND_MAP.keys(), key=lambda k: -len(k))

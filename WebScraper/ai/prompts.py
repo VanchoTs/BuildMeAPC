@@ -184,6 +184,53 @@ Return only valid JSON matching the required keys. Use integers for numeric fiel
 """
 
 
+CASE_PROMPT = """
+You are a hardware expert.
+Extract PC case info from the Bulgarian retailer product page content and return valid JSON.
+
+Required keys:
+- brand (string, e.g. "Fractal Design", "NZXT", "Lian Li")
+- model (short case model, series + identifier only)
+- case_size (one of "Full Tower", "Mid Tower", "Mini Tower", "SFF", "Cube", "HTPC")
+- motherboard_form_factors (array, canonical values only: "ATX", "E-ATX", "Micro ATX", "Mini ITX")
+- included_fans (integer or null)
+- max_cpu_cooler_mm (integer or null)
+- max_gpu_length_mm (integer or null)
+- max_psu_length_mm (integer or null)
+- max_radiator_mm (integer or null)
+- io_json (object with `usb_ports` array and `audio` boolean|null)
+
+io_json example:
+{{"usb_ports": [{{"count": 2, "type": "Type-A", "version": "3.0"}}, {{"count": 1, "type": "Type-C", "version": "3.2 Gen 2"}}], "audio": true}}
+
+For brand, return only the case vendor token. If the title omits it but a breadcrumb names the vendor, use that as fallback.
+Keep model short; exclude colors, descriptors, SKUs.
+For model: reject manufacturer SKU codes like `90RC01N2-B0EAY0` or `ACFRE00125A` when a readable product name is available in the title or page text. Also strip leading voltage specs (e.g. `115/230V`), trailing underscore-cable trailers (`_WITHOUT_CABLE`, `_WITH_CABLE`, `_NO_CABLE`), and slash-joined spec dumps that contain only W / V / mm values (e.g. `/120MM/450MM`). Prefer the user-facing product name such as `LANCOOL 216` or `4000D`.
+Additionally reject descriptive phrases when they appear as prefixes or noise: `Panel`, `PC Case`, `Power Supply AC`, `Radiator`, `240mm Radiator`, `NVIDIA Limited Edition`. Discard any token that looks like a manufacturer SKU (3+ hyphens with digits, or 8+ chars with >=30% digits, or an `R-XXX-YYY`-style code) when a human-readable product name exists elsewhere in the raw text. Strip truncation markers (`...`, `…`) and leading stray punctuation (`, - `). Cyrillic orphan prefixes like `А- -` must be removed.
+Skip non-case items (cables, brackets, fan controllers, dust filters, standoffs); return null for case fields when not an actual case.
+Deterministic parser has priority for final eligibility and normalization. Do NOT invent values; return null when uncertain.
+For included_fans, return ONLY the count of pre-installed/included fans listed in rows such as `Брой на включените вентилатори`, `Included fans`, `Pre-installed fans`. Do NOT return the chassis maximum fan capacity (`Максимален брой вентилатори`, `Max fans`, `Supported fans`, `Maximum fans`). If only max capacity is listed, return null for included_fans.
+When the included-fan row contains a total followed by a parenthetical breakdown (e.g. `4 x 120 mm (3 front; 1 rear)`), return only the outer total (4). Never add the breakdown counts on top of the outer total.
+Cap included_fans at 6 when the source is ambiguous; values above 6 almost always mean max capacity was counted by mistake.
+For io_json.usb_ports, NEVER output entries with `count: 0` or null `count`. If no USB evidence is found, return `{{"usb_ports": [], "audio": null}}` or set audio alone — never pad with empty Type-A placeholders. If a generic row says `4 USB ports` without typed breakdown, return one entry `{{"count": 4, "type": "Type-A", "version": null}}`, not four separate empty entries.
+For io_json, prefer explicit rows like `Портове`, `Предни портове`, `Front I/O`, `Интерфейс`. Do not invent USB counts from marketing text or support hints like `Поддържа USB`.
+Count standalone `Type-C`, `USB-C`, or `Type-A` mentions (e.g. `1 x Type-C`, `2 x USB-C`) as USB ports of that type even when the literal word `USB` is missing from the phrase.
+Preserve per-type USB breakouts. When a single row lists multiple USB clauses with different types or versions (e.g. `2 x USB 3.2 ... 1 x USB 3.2 Gen 2x2 Type C`), return one entry per clause rather than summing counts into a single Type-A entry.
+Preserve the full `Gen NxM` version when present (e.g. `3.2 Gen 2x2`); do not truncate to `3.2 Gen 2`.
+Normalize motherboard form factors to the canonical set above. Use integer millimeters for all max_* fields.
+Prefer spec rows like `Физически размер`, `Формат`, `Вид`, `Брой на включените вентилатори`, `Максимална височина на охладителя`, `Максимален размер на GPU`, `Максимален размер на захранването`, `Място за водно охлаждане`, `Портове`, `Интерфейс`.
+
+Content:
+{content}
+
+Product name: {name}
+Price (EUR): {price}
+Product URL: {url}
+
+Return only valid JSON matching the required keys. Use integers for numeric fields and null when unknown. No markdown fences.
+"""
+
+
 PSU_PROMPT = """
 You are a hardware expert.
 Extract PSU information from the provided product page content and return valid JSON.
@@ -193,27 +240,25 @@ Required fields (use these exact keys):
 - model (short PSU model, e.g. "RM850x", "MAG A850GL", "FOCUS GX-750")
 - physical_size (string, normalized PSU form factor such as "ATX", "SFX", "SFX-L", "TFX", "Flex ATX", "ITX")
 - power_w (integer)
-- efficiency (string or null; keep the explicit efficiency percent/claim only when the source gives one, e.g. "90%", ">90%", "up to 91%")
+- efficiency (string or null; keep only the percentage, e.g. "90%", "91%"; remove "up to", "до", ">", "<")
 - certificate (string or null; e.g. "80 Plus Gold", "80 Plus Bronze", "Cybenetics Gold")
 - modularity (string or null; only "Modular", "Semi-modular", or "Not modular")
-- atx_standard (string or null; e.g. "ATX 3.0", "ATX 3.1", "ATX12V 2.52")
-- pcie5_ready (boolean or null)
-- has_12vhpwr (boolean or null)
 - fan_size_mm (integer or null)
-- warranty_months (integer or null)
 - price (number, EUR)
 - url (string)
 
 Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate.
 For brand, return only the PSU vendor token. If the title/spec rows omit the vendor but a breadcrumb/category trail clearly names the PSU vendor, you may use that breadcrumb vendor as the fallback brand.
+For model, keep it as short as possible, including only the series and specific model identifier (e.g., "RM1000x Shift"). Do not include additional specs like wattage, efficiency, or modularity in the model field. Exclude manufacturer part numbers (MPNs) or internal product codes (e.g., "CP-9020300", "ZPU-500S").
+Reject manufacturer SKU codes like `90RC01N2-B0EAY0` or `ACFRE00125A` when a readable product name such as `RM850x`, `ADK-A600W`, or `TUF-GAMING-750G` is available elsewhere in the page text. Also strip leading voltage specs (e.g. `115/230V`), trailing underscore-cable trailers (`_WITHOUT_CABLE`, `_WITH_CABLE`, `_NO_CABLE`), and slash-joined spec dumps containing only W / V / mm values (e.g. `/120MM/450MM`). Return null only if no readable model exists anywhere.
+Additionally reject descriptive phrases when they appear as prefixes or noise: `Power Supply AC`, `Power Supply DC`, `Panel`, `Radiator`, `NVIDIA Limited Edition`. Discard any token that looks like a manufacturer SKU (3+ hyphens with digits, or 8+ chars with >=30% digits, or an `R-XXX-YYY`-style code) when a human-readable product name exists elsewhere in the raw text. Strip truncation markers (`...`, `…`) and leading stray punctuation (`, - `). Cyrillic orphan prefixes like `А- -` must be removed.
 Skip non-PSU products such as UPS units, batteries, power cables, extensions, splitters, adapters, tester tools, brackets, and covers. If the source is not an actual PSU, return null for the PSU fields instead of inventing values.
 Parser-first deterministic logic decides final product eligibility and normalization. Do not invent values when the source is ambiguous.
 Normalize modularity to exactly `Modular`, `Semi-modular`, or `Not modular`.
 Normalize certificates like `80 Plus Gold`, `80 Plus Bronze`, `80 Plus Platinum`, `80 Plus Titanium`, `80 Plus White`, `80 Plus Standard`, and `Cybenetics Gold`.
-Keep `efficiency` separate from `certificate`; only put the explicit efficiency percent/claim in `efficiency`.
-Normalize power to integer watts, fan size to integer millimeters, and warranty to integer months.
-Detect ATX 3.x / ATX12V standard text, PCIe 5 readiness, and 12VHPWR / 12V-2x6 evidence only when the source states them explicitly.
-Prefer technical specification rows over marketing text. Use rows like `Мощност`, `Форм фактор`, `Ефективност`, `Сертификати`, `Модулен`, `Размер на вентилатора`, `Гаранция`, and any ATX / PCIe 5 / 12VHPWR support rows when present.
+Keep `efficiency` separate from `certificate`; only put the explicit efficiency percent in `efficiency`. Remove "up to", "до", and comparison symbols like ">" or "<" from efficiency.
+Normalize power to integer watts and fan size to integer millimeters.
+Prefer technical specification rows over marketing text. Use rows like `Мощност`, `Форм фактор`, `Ефективност`, `Сертификати`, `Модулен`, `Размер на вентилатора` when present.
 
 Content:
 {content}
@@ -222,5 +267,71 @@ Product name: {name}
 Price (EUR): {price}
 Product URL: {url}
 
-Return only valid JSON matching the required keys. Use integers for numeric fields, booleans for `pcie5_ready` and `has_12vhpwr`, and null when unknown.
+Return only valid JSON matching the required keys. Use integers for numeric fields and null when unknown.
+"""
+
+
+COOLER_PROMPT = """
+You are a hardware expert.
+Extract CPU cooler specs from the Bulgarian retailer product page content and return valid JSON.
+
+Required fields (use these exact keys):
+- brand (string, e.g. "Noctua", "be quiet!", "Arctic", "Cooler Master", "DeepCool")
+- model (short cooler model, series + identifier only)
+- cooler_type (one of "Air", "AIO", or null)
+- socket_compatibility (array of exact socket codes, e.g. ["LGA1700", "LGA1851", "AM5"])
+- cooler_height_mm (integer or null)
+- tdp_w (integer or null)
+- fan_size_mm (integer or null)
+- fan_count (integer or null)
+- noise_db (number or null)
+- rpm_max (integer or null)
+- price (number, EUR)
+- url (string)
+
+Schema shape (for reference):
+{{
+  "brand": string | null,
+  "model": string | null,
+  "cooler_type": "Air" | "AIO" | null,
+  "socket_compatibility": [string],
+  "cooler_height_mm": integer | null,
+  "tdp_w": integer | null,
+  "fan_size_mm": integer | null,
+  "fan_count": integer | null,
+  "noise_db": number | null,
+  "rpm_max": integer | null,
+  "price": number | null,
+  "url": string | null
+}}
+
+Input content follows (may be raw HTML or extracted text). The source mixes Bulgarian and English. Also pay attention to the provided product name and price which can help disambiguate.
+For brand, return only the cooler vendor token. If the title/spec rows omit the vendor but a breadcrumb/category trail clearly names the cooler vendor, you may use that breadcrumb vendor as the fallback brand.
+For model, keep it short: include only the series and specific model identifier. Exclude brand, color tokens, RGB/ARGB tags, form-factor words, AIO size markers (e.g. "240", "360"), and marketing descriptors like "TOWER", "AIR COOLER", "AIO".
+Strip Bulgarian Cyrillic prefixes and phrases such as "Охладител за процесор", "Охладител", "Водно охлаждане", and "за процесор" from anywhere in the model — start, middle, or end. The model must contain only brand-free product identifier tokens.
+Reject manufacturer SKU codes like `90RC01N2-B0EAY0` or `ACFRE00125A` when a readable product name such as `NH-D15` or `H150i Elite` is available elsewhere in the page text. Also strip leading voltage specs (e.g. `115/230V`), trailing underscore-cable trailers (`_WITHOUT_CABLE`, `_WITH_CABLE`, `_NO_CABLE`), and slash-joined spec dumps containing only W / V / mm values (e.g. `/120MM/450MM`). Return null only if no readable model exists anywhere.
+Additionally reject descriptive phrases when they appear as prefixes or noise: `Panel`, `Radiator`, `240mm Radiator`, `NVIDIA Limited Edition`. Discard any token that looks like a manufacturer SKU (3+ hyphens with digits, or 8+ chars with >=30% digits, or an `R-XXX-YYY`-style code) when a human-readable product name exists elsewhere in the raw text. Strip truncation markers (`...`, `…`) and leading stray punctuation (`, - `). Cyrillic orphan prefixes like `А- -` must be removed.
+Rules:
+- cooler_type: "AIO" for any liquid/water cooler — including Bulgarian "Водно" or "Водно охлаждане", sealed AIO units, open-loop blocks, waterblocks, and CPU blocks. "Air" for heatsink/tower/heatpipe-based coolers. Return null only if no cooling type can be inferred.
+- socket_compatibility: exact codes only (LGA1700, LGA1851, LGA1200, LGA1151, LGA2066, AM5, AM4, sTRX4, SP5, etc.). Do not invent ranges or generic labels like "Intel" / "AMD". Return [] when no sockets are listed.
+- cooler_height_mm: cooler tower height in mm (30-300). Accept "до NNN mm" / "NNN mm" / bare integer.
+- tdp_w: cooler heat-dissipation capacity in watts (30-500). Accept "NNN W", "до NNN W", "TDP NNN", "капацитет NNN". Not fan wattage or CPU TDP label.
+- fan_size_mm: single fan dimension only (120, 140, 200, etc.). Never the radiator length (240/280/360/420 mm).
+- fan_count: count of bundled fans only. Sum parenthetical breakdowns like "4 x 120 mm (3 front; 1 rear)" -> 4. AIO 240 with dual fans -> 2.
+- noise_db: in dBA. Strip "<" / "до" prefixes and trailing "MAX" / "макс" suffixes. Accept both dot and comma decimal separators ("24.6 dBA" and "24,6 dBA" both mean 24.6). Range 0-70 dBA.
+- rpm_max: maximum RPM as integer. Accept both Latin "RPM" and Bulgarian "об/мин" units, and spec-row labels such as "Обороти", "Оборота в минута", "Оборот в минута", "Обороти на вентилатора". For ranges like "600-2000 RPM", "250 - 1500 RPM", or "250 - 1800 об/мин", take the upper bound (so 1800, not 250). Accept trailing "MAX" / "макс" suffixes ("1500 RPM MAX" -> 1500). Range 200-5000.
+Skip non-cooler accessories such as thermal paste/grease, standalone fans without a heatsink, cable kits, fan hubs, and brackets. If the source is not a CPU cooler, return null for the cooler fields instead of inventing values.
+Parser-first deterministic logic decides final product eligibility and normalization. Do not invent values when the source is ambiguous.
+Prefer technical specification rows over marketing text. Use rows like "Съвместимост", "Тип", "Височина", "Мощност на охлаждане", "Размер на вентилатора" / "Размер на вентилаторите", "Брой вентилатори", "Ниво на шум", "Обороти", "Оборота в минута", "Оборот в минута" when present.
+Bulgarian specs often use comma as the decimal separator (e.g. "24,6 dBA"). Treat "24,6" and "24.6" as equivalent.
+Return null for unknown fields; never fabricate. Return only valid JSON — no commentary, no markdown fences.
+
+Content:
+{content}
+
+Product name: {name}
+Price (EUR): {price}
+Product URL: {url}
+
+Return only valid JSON matching the required keys. Use numbers for numeric fields and null when unknown.
 """
