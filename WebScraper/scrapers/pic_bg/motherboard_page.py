@@ -171,7 +171,7 @@ def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
 
 def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
     candidates: list[str] = []
-    for anchor in soup.select("a[data-category='Breadcrumb'], a[href*='/filter/brands/']"):
+    for anchor in soup.select("a[data-category='Breadcrumb']"):
         data_label = anchor.get("data-label")
         if data_label:
             candidates.append(data_label)

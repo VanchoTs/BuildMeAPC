@@ -4,7 +4,7 @@ Extract CPU information from the provided product page content and return valid 
 
 Required fields (use these exact keys):
 - brand (string)
-- model (short product model, e.g. "Ryzen 5 3400G")
+- model (short product model, e.g. "Ryzen 5 3400G", "Core i9-14900K")
 - socket (string)
 - cores (integer)
 - threads (integer)
@@ -13,6 +13,11 @@ Required fields (use these exact keys):
 - tdp (W, integer)
 - memory_type (string, e.g. "DDR4", "DDR5", or "DDR4/DDR5")
 - price (number, EUR)
+
+CRITICAL CORE RULE:
+For CPUs with hybrid architectures (e.g. Intel 12th/13th/14th Gen), 'cores' MUST be the TOTAL number of cores (sum of Performance-cores and Efficient-cores). 
+Example: "24 cores ( 8 Performance-cores & 16 Efficient-cores )" -> cores: 24.
+Do NOT just report the Performance-core count.
 
 Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate.
 
@@ -32,8 +37,8 @@ Extract GPU information from the provided product page content and return valid 
 Required fields (use these exact keys):
 - brand (string, e.g. "NVIDIA", "AMD", "Intel")
 - model (short GPU model, e.g. "GeForce RTX 4070", "Radeon RX 7800 XT", "Arc A770")
-- pcb_manufacturer (string, e.g. "ASUS", "MSI", "Gigabyte", "Sapphire")
-- pcb_series (string, e.g. "TUF Gaming", "Gaming X", "Eagle", "Pulse")
+- pcb_manufacturer (string, e.g. "ASUS", "MSI", "Gigabyte", "Sapphire", "Gainward")
+- pcb_series (string, e.g. "TUF Gaming", "Gaming X", "Eagle", "Pulse", "Phoenix")
 - vram_gb (integer)
 - memory_type (string, e.g. "GDDR6", "GDDR6X")
 - memory_bus_bit (integer)
@@ -43,7 +48,26 @@ Required fields (use these exact keys):
 - interface (string, e.g. "PCIe 4.0")
 - price (number, EUR)
 
-Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate. For interface, prefer the "Слот" or "Slot" field (often with id "char-slot") and normalize "PCI Express Gen 5" as "PCIe 5.0". Do not use display outputs (HDMI/DP/DVI) or memory bus ("128-bit") as the interface.
+Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate.
+
+CRITICAL MODEL RULE:
+You MUST include the family prefix in the model name if missing or shortened. 
+- For NVIDIA: Use "GeForce RTX" or "GeForce GTX" (e.g. "4070" -> "GeForce RTX 4070").
+- For AMD: Use "Radeon RX" (e.g. "9070 XT" -> "Radeon RX 9070 XT", "RX 580" -> "Radeon RX 580").
+- For Intel: Use "Arc" (e.g. "A770" -> "Arc A770", "B580" -> "Arc B580").
+
+CRITICAL BRAND RULE:
+- 'brand' is the chip maker: NVIDIA, AMD, or Intel.
+- 'pcb_manufacturer' is the board partner: ASUS, MSI, Gigabyte, Sapphire, PowerColor, Gainward, Palit, XFX, Zotac, PNY, etc.
+- If the board partner name includes the chip maker (e.g. "ASRock AMD Radeon..."), extract only the partner "ASRock" for pcb_manufacturer.
+
+CRITICAL CONFLICT RESOLUTION:
+If the webpage contains conflicting values for a field (e.g. one row says 16GB VRAM, another says 12GB), you MUST resolve the conflict by:
+1. Preferring the value explicitly mentioned in the Product name (title).
+2. If the title is silent, use the value that appears most consistently or frequently in the technical specifications.
+3. If still uncertain, use the lower value to be conservative.
+
+For interface, prefer the "Слот" or "Slot" field (often with id "char-slot") and normalize "PCI Express Gen 5" as "PCIe 5.0". Do not use display outputs (HDMI/DP/DVI) or memory bus ("128-bit") as the interface.
 
 Content:
 {content}
@@ -69,6 +93,21 @@ Required fields (use these exact keys):
 - price (number, EUR)
 
 Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate. If a kit contains multiple modules, ensure memory_amount reflects that. Use "Laptop" for SO-DIMM and "PC" for DIMM/UDIMM.
+
+CRITICAL form_factor rule — judge by SPEC FIELDS only, not page chrome:
+
+Step 1. Find the spec/property field that describes the module type. Likely keys: "Подходящо за", "Тип", "Form factor", "Вид", "Памет за". Read its VALUE.
+
+Step 2. Decide using ONLY that value (and the product name/title):
+  - If the value contains "SODIMM", "SO-DIMM", "260-pin", "Лаптоп", "Ноутбук", "Notebook", "Laptop" → output "Laptop".
+  - If the value contains "UDIMM", "288-pin", "Desktop", "Дескоп", "Настолен компютър", "Настолни компютри" → output "PC".
+  - If the value lists BOTH (e.g. "Лаптоп, Настолен" or "SODIMM / DIMM") → laptop wins on conflict, output "Laptop".
+
+Step 3. If no spec field clearly says — fall back to the product name/title using the same token rules.
+
+DO NOT classify as "Laptop" because the word "Лаптоп" appears somewhere else on the page (sidebar links, breadcrumb categories, cross-sell sections, related products). Those are navigation chrome, not specs of THIS module. A desktop DIMM marked "Подходящо за: Настолни компютри" is "PC" even if the page sidebar links to a "Лаптоп памет" category.
+
+If neither spec nor name is conclusive, output null.
 
 Content:
 {content}
@@ -153,7 +192,7 @@ You are a hardware expert.
 Extract SSD information from the provided product page content and return valid JSON.
 
 Required fields (use these exact keys):
-- brand (string, e.g. "Samsung", "Crucial", "Kingston")
+- brand (string, e.g. "Samsung", "Crucial", "Kingston", "Dell", "Hiksemi", "KingSpec")
 - model (short SSD model, e.g. "870 EVO", "P510", "990 PRO")
 - type (string, only "M.2" or "SATA")
 - storage_size_gb (integer, normalized capacity in GB; e.g. 250, 500, 1000, 2000)
@@ -168,7 +207,7 @@ Required fields (use these exact keys):
 - url (string)
 
 Input content follows (may be raw HTML or extracted text). Also pay attention to the provided product name and price which can help disambiguate.
-For brand, return only the SSD vendor token. If the title/spec rows omit the vendor but a breadcrumb/category trail clearly names the SSD vendor, you may use that breadcrumb vendor as the fallback brand.
+CRITICAL: For brand, return only the SSD vendor token. If the title/spec rows omit the vendor but the 'Product name' or a breadcrumb/category trail names the SSD vendor (e.g. "SSD Adata", "Kingston NV2", "Samsung 980"), you MUST use that vendor as the brand. NEVER return null for brand if the vendor name appears anywhere in the input.
 Skip products that are HDDs, external drives, enclosures, brackets, adapters, caddies, docks, or heatsink-only accessories. Keep real SSDs that include an integrated heatsink. Interpret `Вътрешен/Външен` from the row value itself; the row title alone is not evidence that the drive is internal. If the source is not an eligible internal SSD, return null for the SSD fields instead of inventing values.
 `type` must be only "M.2" or "SATA". Map mSATA products to "SATA". Normalize capacities and speeds to integers. Normalize interfaces such as `PCIe NVMe 5.0 x4`, `NVMe (PCIe Gen 5 x4)`, and `PCI Express 4.0 x4 (NVMe)` to `PCIe Gen 5 x4` / `PCIe Gen 4 x4` style. Normalize SATA interfaces like `SATA III 6Gb/s`. If interface detail is missing but `type` is known, return the coarse fallback `PCIe` for `M.2` and `SATA` for `SATA`. When a string contains both capacity and endurance numbers, prefer the `TBW`-labeled value over capacity text, for example `2TB:1200TBW` should return `1200` for TBW, not `2`. If TBW is written in PB, convert it to decimal TB before returning it, for example `1 PB` -> `1000`. Interpret grouped thousands separators in TBW values correctly, for example `1,480TB` -> `1480`. Normalize NAND values so explicit cell-type wording collapses to the cell type: `Triple-Level Cell` -> `TLC`, `NAND TLC` -> `TLC`, `QLC NAND` and `Quad-level cell (QLC)` -> `QLC`, `Single-Level Cell` -> `SLC`, and `3D multi-level cell (MLC)` -> `MLC`. Normalize `3D NAND`, `3D NAND flash`, and `3D NAND Flash` to `NAND`. Keep Samsung V-NAND labels as `V-NAND`, for example `Samsung V-NAND 3-bit MLC` -> `V-NAND`. Keep `NAND Flash` as `NAND`. Treat placeholders such as `NVMe` and `NVMe M.2` as missing NAND and return null instead of echoing them back. Deterministic parser guard rails still decide final skip rules, type classification, and final normalization, so do not guess when the source is ambiguous.
 Prefer the technical specification rows over marketing text. For physical size, prefer exact forms like `2280`, `22110`, `2.5"`, or `mSATA` over generic labels like `M.2`. Use read/write rows such as `Скорост на четене`, `Скорост на запис`, `Последователно четене`, and `Последователен запис` when present. Use TBW rows such as `Общо записани терабайти (TBW)` when present. Use NAND rows such as `Тип флаш памет` or `Тип на паметта` when present.
@@ -306,11 +345,16 @@ Schema shape (for reference):
 }}
 
 Input content follows (may be raw HTML or extracted text). The source mixes Bulgarian and English. Also pay attention to the provided product name and price which can help disambiguate.
-For brand, return only the cooler vendor token. If the title/spec rows omit the vendor but a breadcrumb/category trail clearly names the cooler vendor, you may use that breadcrumb vendor as the fallback brand.
+For brand, return only the cooler vendor token. If the title/spec rows omit the vendor but the 'Product name' or breadcrumbs name the vendor, use that as the brand.
+
+CRITICAL SOCKET RULE:
+You MUST extract ALL supported sockets listed in the content. Do NOT truncate the list. If the page says "LGA 1150, 1151, 1155, 1156, 1200, 1700, 1851, AM4, AM5", you MUST return ALL of them in the array: ["LGA1150", "LGA1151", "LGA1155", "LGA1156", "LGA1200", "LGA1700", "LGA1851", "AM4", "AM5"]. Never return just one socket if more are listed.
+
 For model, keep it short: include only the series and specific model identifier. Exclude brand, color tokens, RGB/ARGB tags, form-factor words, AIO size markers (e.g. "240", "360"), and marketing descriptors like "TOWER", "AIR COOLER", "AIO".
 Strip Bulgarian Cyrillic prefixes and phrases such as "Охладител за процесор", "Охладител", "Водно охлаждане", and "за процесор" from anywhere in the model — start, middle, or end. The model must contain only brand-free product identifier tokens.
 Reject manufacturer SKU codes like `90RC01N2-B0EAY0` or `ACFRE00125A` when a readable product name such as `NH-D15` or `H150i Elite` is available elsewhere in the page text. Also strip leading voltage specs (e.g. `115/230V`), trailing underscore-cable trailers (`_WITHOUT_CABLE`, `_WITH_CABLE`, `_NO_CABLE`), and slash-joined spec dumps containing only W / V / mm values (e.g. `/120MM/450MM`). Return null only if no readable model exists anywhere.
 Additionally reject descriptive phrases when they appear as prefixes or noise: `Panel`, `Radiator`, `240mm Radiator`, `NVIDIA Limited Edition`. Discard any token that looks like a manufacturer SKU (3+ hyphens with digits, or 8+ chars with >=30% digits, or an `R-XXX-YYY`-style code) when a human-readable product name exists elsewhere in the raw text. Strip truncation markers (`...`, `…`) and leading stray punctuation (`, - `). Cyrillic orphan prefixes like `А- -` must be removed.
+Also reject: (a) any string containing underscores — retailer-mangled forms such as `AG400_DIGITAL_PLUS`, `MAG_CORELIQUID_A15_360`, `LQ360_ULTRA_WH_ARGB` — return null and the product name will be used instead; (b) strings that are only a socket/platform list such as `AM4/AM5`, `LGA1700`, `Intel/AMD`; (c) packaging suffixes like `/Bulk`, `/Retail`, `/OEM`, `/Tray`, `/Box` — strip them; (d) short all-caps alphanumeric tokens like `BW020`, `EY3B001` when a descriptive product name is present elsewhere. For Noctua `.CH.BK`-style variant codes, strip trailing `.CH`, `.BK`, `.WH`, `.CHROMAX` etc. so `NH-D15.G2.CH.BK` becomes `NH-D15 G2`.
 Rules:
 - cooler_type: "AIO" for any liquid/water cooler — including Bulgarian "Водно" or "Водно охлаждане", sealed AIO units, open-loop blocks, waterblocks, and CPU blocks. "Air" for heatsink/tower/heatpipe-based coolers. Return null only if no cooling type can be inferred.
 - socket_compatibility: exact codes only (LGA1700, LGA1851, LGA1200, LGA1151, LGA2066, AM5, AM4, sTRX4, SP5, etc.). Do not invent ranges or generic labels like "Intel" / "AMD". Return [] when no sockets are listed.

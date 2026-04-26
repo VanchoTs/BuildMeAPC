@@ -1,0 +1,12 @@
+**/.git
+**/.vscode
+**/.idea
+**/bin
+**/obj
+**/node_modules
+**/WebScraper/.venv
+**/.pytest_cache
+scraper_errors.log
+*.docx
+*.sln
+apppassword.txt

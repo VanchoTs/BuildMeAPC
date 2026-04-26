@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <a href="index.html" class="logo" style="justify-content: center; margin-bottom: 2rem;">
+                <img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC
+            </a>
+            
+            <h1 style="text-align: center; margin-bottom: 1rem;">Verify Your Email</h1>
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">We've sent a 6-digit code to your email. Please enter it below to verify your account.</p>
+
+            <form id="verify-form">
+                <div class="form-group">
+                    <label for="verify-code">Verification Code</label>
+                    <input type="text" id="verify-code" maxlength="6" placeholder="123456" required 
+                           style="text-align: center; font-size: 2rem; letter-spacing: 0.5rem; font-weight: bold;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Verify Account</button>
+            </form>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <p style="color: var(--text-secondary);">Didn't get the code? <a href="#" id="resend-code" style="color: var(--accent-color);">Resend Code</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initLanguageDetection } from './js/i18n.js';
+        document.addEventListener('DOMContentLoaded', () => {
+            initLanguageDetection();
+            const form = document.getElementById('verify-form');
+            const resendBtn = document.getElementById('resend-code');
+
+            if (resendBtn) {
+                resendBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const API_RESEND = `http://${window.location.hostname}:5075/api/auth/resend-verification`;
+                    try {
+                        const res = await fetch(API_RESEND, {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
+                        if (res.ok) {
+                            alert('A new verification code has been sent to your email.');
+                        } else {
+                            const err = await res.text();
+                            alert(`Failed to resend: ${err}`);
+                        }
+                    } catch (err) {
+                        alert('Could not connect to server.');
+                    }
+                });
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const code = document.getElementById('verify-code').value;
+                const API_URL = `http://${window.location.hostname}:5075/api/auth/verify`;
+
+                try {
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(code)
+                    });
+                    if (res.ok) {
+                        alert('Email verified successfully!');
+                        window.location.href = 'index.html';
+                    } else {
+                        const err = await res.text();
+                        alert(`Verification failed: ${err}`);
+                    }
+                } catch (err) {
+                    alert('Could not connect to server.');
+                }
+            });
+        });
+    </script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

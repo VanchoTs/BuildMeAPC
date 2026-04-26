@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuildMeAPC - Intelligent PC Selection</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html" class="active"><span>🏠</span> Home</a>
+            <a href="questionnaire.html"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="login.html" class="btn btn-outline">Login</a>
+            <a href="signup.html" class="btn btn-primary">Sign Up</a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main>
+            <section class="hero">
+                <h1>Your Intelligent PC Builder</h1>
+                <p>We use smart data analysis and compatibility checking to find the perfect components for your budget and needs.</p>
+                <div class="cta-group">
+                    <a href="questionnaire.html" class="btn btn-primary">Start Building Now</a>
+                    <a href="#how-it-works" class="btn btn-outline">Learn More</a>
+                </div>
+            </section>
+
+            <section id="how-it-works" style="margin-top: 4rem;">
+                <h2 style="text-align: center; margin-bottom: 2rem;">How It Works</h2>
+                <div class="home-cards-grid">
+                    <div class="card square-card">
+                        <h3>1. Tell us your needs</h3>
+                        <p>Enter your budget and primary use cases (gaming, video editing, etc.).</p>
+                    </div>
+                    <div class="card square-card">
+                        <h3>2. We crunch the data</h3>
+                        <p>Our engine scans thousands of components to find the best value matches.</p>
+                    </div>
+                    <div class="card square-card">
+                        <h3>3. Get your builds</h3>
+                        <p>Choose from three optimized configurations tailored just for you.</p>
+                    </div>
+                </div>
+
+                <!-- Expanded Content for Learn More -->
+                <div id="more-info" style="display: none; margin-top: 4rem; animation: fadeIn 0.8s ease-out;">
+                    <h2 style="text-align: center; margin-bottom: 2rem;">Why Choose BuildMeAPC?</h2>
+                    <div class="home-cards-grid">
+                        <div class="card">
+                            <h3>🔍 Advanced Compatibility Engine</h3>
+                            <p>We check physical clearances (cooler height, GPU length), power requirements with safety headroom, and PCIe lane bottlenecks.</p>
+                        </div>
+                        <div class="card">
+                            <h3>📊 Real-time Bulgarian Market Data</h3>
+                            <p>Our prices and availability are updated directly from local retailers, ensuring you get deals that actually exist in Bulgaria.</p>
+                        </div>
+                        <div class="card">
+                            <h3>🧠 Intelligent Tiering</h3>
+                            <p>We don't just give you one build. We provide options for best price-to-performance, maximum upgradeability, and highest component quality.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

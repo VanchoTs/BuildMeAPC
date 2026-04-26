@@ -123,10 +123,35 @@ def _normalize_brand(value: str | None) -> Optional[str]:
         "MSI": "MSI",
         "HP": "HP",
         "SYNOLOGY": "Synology",
+        "TRANSCHEND": "Transcend",
+        "TRANSCEND": "Transcend",
+        "PONY": "PNY",
+        "PNY": "PNY",
+        "NETAC": "Netac",
+        "SANDISK": "SanDisk",
+        "DELL": "Dell",
+        "EMTEC": "Emtec",
+        "FUJITSU": "Fujitsu",
+        "HIKSEMI": "Hiksemi",
+        "HIK SEMI": "Hiksemi",
+        "KINGSPEC": "KingSpec",
+        "KING SPEC": "KingSpec",
     }
+    # Check for full token match first to avoid partial overlap issues
+    import re
+    for token, normalized in brand_map.items():
+        if re.search(r"\b" + re.escape(token) + r"\b", upper):
+            return normalized
+    
+    # Fallback to simple substring if word boundaries fail
     for token, normalized in brand_map.items():
         if token in upper:
             return normalized
+    
+    # If not in map, return the cleaned title-cased string if it's not a generic term
+    if len(s) > 2 and s.lower() not in ("ssd", "disk", "drive", "internal"):
+        return s.title()
+        
     return None
 
 
@@ -549,7 +574,7 @@ def _build_ai_source(specs: dict, raw: str) -> str:
 def _extract_ssd_data(name: str, specs: dict, raw: str, url: str) -> tuple[dict, set[str]]:
     strong = set()
 
-    brand = _infer_brand_from_text(name, raw)
+    brand = _infer_brand_from_text(name, raw, url)
     series_key, series_val = _spec_lookup(specs, "серия ssd", "серия")
     model = _normalize_model(series_val or name, brand)
     if series_val:
@@ -744,7 +769,8 @@ async def run_ssd_pipeline(
                     _normalize_brand(parsed.get("brand"))
                     or _normalize_brand(det.get("brand"))
                     or _normalize_brand(ai_data.get("brand"))
-                    or _infer_brand_from_text(name, raw)
+                    or _infer_brand_from_text(name, raw, url)
+                    or _clean_str(parsed.get("brand"))
                 )
 
                 final["model"] = _normalize_model(

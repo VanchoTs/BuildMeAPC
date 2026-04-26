@@ -107,9 +107,14 @@ def _normalize_form_factor(value):
     if not value:
         return None
     s = str(value).upper()
-    if any(k in s for k in ("SO-DIMM", "SODIMM", "LAPTOP", "NOTEBOOK")):
+    # Canonical pass-through.
+    if s.strip() == "LAPTOP":
         return "Laptop"
-    if any(k in s for k in ("UDIMM", "DIMM", "DESKTOP", "PC")):
+    if s.strip() == "PC":
+        return "PC"
+    if any(k in s for k in ("SO-DIMM", "SODIMM", "LAPTOP", "NOTEBOOK", "260-PIN", "260 PIN", "ЛАПТОП", "НОУТБУК")):
+        return "Laptop"
+    if any(k in s for k in ("UDIMM", "DIMM", "DESKTOP", "PC", "ДЕСКТОП", "НАСТОЛЕН", "НАСТОЛНИ", "НАСТОЛНА")):
         return "PC"
     return None
 

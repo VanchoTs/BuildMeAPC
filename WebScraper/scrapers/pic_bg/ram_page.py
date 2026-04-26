@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from typing import Optional, Tuple
+import re
 
 BGN_PER_EUR = 1.95583
 
@@ -15,7 +16,7 @@ def _first_text(soup, selectors) -> Optional[str]:
 def _parse_price_el(el) -> Optional[float]:
     if el is None:
         return None
-    import re
+    # import re
 
     sup = el.find("sup")
     sup_digits = None
@@ -96,7 +97,7 @@ def _collect_specs(soup: BeautifulSoup) -> dict:
 
 
 def _parse_brand_model(title: str):
-    import re
+    # import re
 
     if not title:
         return None, None
@@ -151,31 +152,13 @@ def _parse_brand_model(title: str):
     return brand, model
 
 
-def _extract_brand_from_ga_event(soup: BeautifulSoup) -> Optional[str]:
-    candidates: list[str] = []
-    for el in soup.select(".ga_event"):
-        for attr, val in el.attrs.items():
-            if not val:
-                continue
-            if isinstance(val, (list, tuple)):
-                val = " ".join(str(v) for v in val)
-            if (
-                "brand" in attr.lower()
-                or "manufacturer" in attr.lower()
-                or "vendor" in attr.lower()
-            ):
-                candidates.append(str(val))
-            if attr.lower().startswith("data-") and (
-                "product" in attr.lower() or "name" in attr.lower()
-            ):
-                candidates.append(str(val))
-        text = el.get_text(" ", strip=True)
-        if text:
-            candidates.append(text)
-
-    if not candidates:
+def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
+    if not value:
         return None
-
+    candidate = re.sub(r"\s+", " ", str(value)).strip()
+    if not candidate:
+        return None
+    upper = candidate.upper()
     brand_tokens = [
         "KINGSTON",
         "CORSAIR",
@@ -197,11 +180,30 @@ def _extract_brand_from_ga_event(soup: BeautifulSoup) -> Optional[str]:
         "HYPERX",
         "HP",
     ]
-    for cand in candidates:
-        upper = cand.upper()
-        for token in brand_tokens:
-            if token in upper:
-                return token
+    for token in brand_tokens:
+        if upper == token or token in upper:
+            return token
+    return None
+
+
+def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
+    candidates: list[str] = []
+    for anchor in soup.select("a[data-category='Breadcrumb']"):
+        data_label = anchor.get("data-label")
+        if data_label:
+            candidates.append(data_label)
+        text = anchor.get_text(" ", strip=True)
+        if text:
+            candidates.append(text)
+        href = anchor.get("href") or ""
+        import re
+        match = re.search(r"/filter/brands/([^/?#]+)", href, flags=re.IGNORECASE)
+        if match:
+            candidates.append(match.group(1).replace("-", " "))
+    for candidate in candidates:
+        normalized = _normalize_breadcrumb_brand_candidate(candidate)
+        if normalized:
+            return normalized
     return None
 
 
@@ -254,10 +256,10 @@ def parse_ram_page(html: str, url: str) -> dict:
     price = price_eur if price_eur is not None else price_bgn
 
     brand, model = _parse_brand_model(name)
-    ga_brand = _extract_brand_from_ga_event(soup)
+    breadcrumb_brand = _extract_breadcrumb_brand(soup)
     if brand is None or str(brand).upper() in ("TEAM", "XPG", "AXPG", "NULL", "NONE"):
-        if ga_brand:
-            brand = ga_brand
+        if breadcrumb_brand:
+            brand = breadcrumb_brand
 
     return {
         "name": name,

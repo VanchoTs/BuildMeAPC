@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Recommendations - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html"><span>🏠</span> Home</a>
+            <a href="questionnaire.html" class="active"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="login.html" class="btn btn-outline">Login</a>
+            <a href="signup.html" class="btn btn-primary">Sign Up</a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main>
+            <div id="results-view">
+                <h1 style="text-align: center; margin-bottom: 2rem;">Recommended Builds</h1>
+                <div id="results-container" class="build-grid">
+                    <!-- Builds will be injected here by JS -->
+                    <div style="grid-column: 1/-1; text-align: center;">
+                        <p>Loading your personalized builds...</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 4rem; text-align: center;" id="compare-btn-container">
+                    <a href="compare.html" class="btn btn-outline">Compare These Builds</a>
+                </div>
+            </div>
+
+            <!-- Single build view (initially hidden) -->
+            <div id="single-build-view" style="display: none;">
+                <button id="back-to-results-btn" class="btn btn-outline" style="margin-bottom: 2rem;">← Back to Results</button>
+                <div id="single-build-content"></div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="js/buildEngine.js"></script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

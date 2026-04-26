@@ -8,7 +8,7 @@ from typing import Optional
 from scrapers.pic_bg.urls import CPU_CATEGORY_URL
 from scrapers.core.browser import Browser
 
-from scrapers.pic_bg.product_page import parse_cpu_page
+from scrapers.pic_bg.cpu_page import parse_cpu_page
 from ai.cpu_parser import parse_cpu
 from storage.cpu_repository import (
     upsert_cpu,

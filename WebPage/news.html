@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hardware News - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <style>
+        .create-news-form {
+            display: none; /* Hidden by default */
+            background-color: var(--surface-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+        .create-news-form.active {
+            display: block;
+        }
+        .create-news-form textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 0.85rem 1rem;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            transition: all 0.3s;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .create-news-form textarea::placeholder {
+            color: var(--input-placeholder);
+        }
+        .create-news-form textarea:focus {
+            border-color: var(--accent-color);
+            background-color: var(--surface-accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html"><span>🏠</span> Home</a>
+            <a href="questionnaire.html"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html" class="active"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="login.html" class="btn btn-outline">Login</a>
+            <a href="signup.html" class="btn btn-primary">Sign Up</a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <h1>Latest Hardware News</h1>
+                    <p style="color: var(--text-secondary);">Stay updated with the latest trends in PC building and component releases.</p>
+                </div>
+                <button id="toggle-news-btn" class="btn btn-primary" style="display: none;">+ Write Article</button>
+            </div>
+
+            <!-- Create News Form (visible only to admins/writers) -->
+            <form id="create-news-form" class="create-news-form">
+                <h3 style="margin-bottom: 1rem;">Publish New Article</h3>
+                <div class="input-group">
+                    <label for="news-title">Article Title *</label>
+                    <input type="text" id="news-title" name="title" placeholder="Enter title here..." required>
+                </div>
+                <div class="input-group">
+                    <label for="news-image">Image URL (Optional)</label>
+                    <input type="url" id="news-image" name="imageUrl" placeholder="https://example.com/image.jpg">
+                </div>
+                <div class="input-group">
+                    <label for="news-catch-phrase">Catch Phrase (Optional)</label>
+                    <input type="text" id="news-catch-phrase" name="catchPhrase" placeholder="Short description or summary...">
+                </div>
+                <div class="input-group">
+                    <label for="news-content">Content *</label>
+                    <textarea id="news-content" name="content" placeholder="Write your article content here..." required></textarea>
+                </div>
+                <div style="text-align: right;">
+                    <button type="button" id="cancel-news-btn" class="btn btn-outline">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="margin-left: 1rem;">Publish</button>
+                </div>
+            </form>
+
+            <div class="search-bar" style="max-width: 600px; margin: 0 auto 3rem auto; background-color: var(--surface-color); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border-color); display: flex; gap: 0.5rem;">
+                <input type="text" id="news-search" placeholder="Search news articles..." style="flex: 1; border: none; background: none; padding: 0.5rem 1rem;">
+                <button class="btn btn-primary" id="news-search-btn" style="padding: 0.5rem 1.5rem;">Search</button>
+            </div>
+
+            <div class="news-grid" id="news-container">
+                <!-- Articles will be injected here via JS -->
+                <p>Loading news...</p>
+            </div>
+
+            <!-- Single Article View (Hidden by default) -->
+            <div id="single-article-view" style="display: none; background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 10px; padding: 2rem; margin-top: 2rem;">
+                <button id="back-to-news-btn" class="btn btn-outline" style="margin-bottom: 1.5rem;">← Back to News</button>
+                <div id="single-article-content"></div>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="js/news.js"></script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

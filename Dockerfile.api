@@ -1,0 +1,27 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy csproj and restore
+COPY ["Back-End/BuildMeAPC.Api/BuildMeAPC.Api.csproj", "Back-End/BuildMeAPC.Api/"]
+RUN dotnet restore "Back-End/BuildMeAPC.Api/BuildMeAPC.Api.csproj"
+
+# Copy everything else and build
+COPY . .
+WORKDIR "/src/Back-End/BuildMeAPC.Api"
+RUN dotnet build "BuildMeAPC.Api.csproj" -c Release -o /app/build
+
+# Publish stage
+FROM build AS publish
+RUN dotnet publish "BuildMeAPC.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+
+# Use a non-root user for security (optional but recommended)
+# USER 1000
+
+EXPOSE 5075
+ENTRYPOINT ["dotnet", "BuildMeAPC.Api.dll"]

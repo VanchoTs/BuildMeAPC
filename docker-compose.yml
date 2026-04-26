@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: pc_builder
+      POSTGRES_USER: pc_user
+      POSTGRES_PASSWORD: pc_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_app_tables.sql:/docker-entrypoint-initdb.d/00_init_app_tables.sql
+      - ./all_pc_parts.sql:/docker-entrypoint-initdb.d/01_all_pc_parts.sql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "5075:5075"
+    environment:
+      - ASPNETCORE_URLS=http://+:5075
+      - ConnectionStrings__DefaultConnection=Host=db;Database=pc_builder;Username=pc_user;Password=pc_password
+      - AppSettings__Token=YOUR_LONG_SECURE_RANDOM_SECRET_KEY_HERE_THAT_SHOULD_BE_AT_LEAST_64_CHARACTERS_LONG
+
+      - SmtpSettings__Server=smtp.gmail.com
+      - SmtpSettings__Port=587
+      - SmtpSettings__SenderEmail=buildmeapcbulgaria@gmail.com
+      - SmtpSettings__SenderName=BuildMeAPC System
+      - SmtpSettings__Password=sdyu bklw eged kgeu
+    depends_on:
+      - db
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "5500:80"
+    volumes:
+      - ./WebPage:/usr/share/nginx/html
+    depends_on:
+      - api
+
+  scraper:
+    build:
+      context: ./WebScraper
+    volumes:
+      - ./WebScraper:/app
+    environment:
+      - DATABASE_URL=postgresql://pc_user:pc_password@db:5432/pc_builder
+      - PYTHONPATH=/app
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

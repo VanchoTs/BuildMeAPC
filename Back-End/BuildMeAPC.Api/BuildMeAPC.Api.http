@@ -1,0 +1,6 @@
+@BuildMeAPC.Api_HostAddress = http://localhost:5075
+
+GET {{BuildMeAPC.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -281,13 +281,43 @@ def _extract_latency(*texts: str | None) -> Optional[str]:
 
 
 def _extract_form_factor(*texts: str | None) -> Optional[str]:
-    for text in texts:
-        if not text:
+    # Per-input early return: caller passes inputs in priority order
+    # (spec value first, then AI hint, then product name, then raw). The first
+    # input that yields a classification wins. This prevents cross-sell /
+    # sidebar / related-product mentions of "Лаптоп" inside raw_specs from
+    # overriding a clear "Настолни компютри" spec value.
+    #
+    # Within a single input, laptop-wins-on-conflict still holds — if the
+    # primary spec value lists both laptop and desktop tokens, classify Laptop
+    # (that RAM is also laptop-compatible, so the stricter side wins).
+    LAPTOP_TOKENS = (
+        "SO-DIMM", "SODIMM", "LAPTOP", "NOTEBOOK",
+        "260-PIN", "260 PIN",
+        "ЛАПТОП", "НОУТБУК",  # Bulgarian: laptop, notebook
+    )
+    # "НАСТОЛЕН" / "НАСТОЛНИ" cover the actual Bulgarian phrasing on pic.bg
+    # ("Настолен компютър" / "Настолни компютри").
+    PC_TOKENS = (
+        "UDIMM", "288-PIN", "288 PIN",
+        "DESKTOP", "ДЕСКТОП",
+        "НАСТОЛЕН", "НАСТОЛНИ", "НАСТОЛНА",
+        "DIMM",
+    )
+
+    for t in texts:
+        if not t:
             continue
-        s = str(text).upper()
-        if any(k in s for k in ("SO-DIMM", "SODIMM", "LAPTOP", "NOTEBOOK")):
+        upper = str(t).upper().strip()
+        if not upper:
+            continue
+        # Canonical pass-through.
+        if upper == "LAPTOP":
             return "Laptop"
-        if any(k in s for k in ("UDIMM", "DIMM", "DESKTOP", "PC")):
+        if upper == "PC":
+            return "PC"
+        if any(k in upper for k in LAPTOP_TOKENS):
+            return "Laptop"
+        if any(k in upper for k in PC_TOKENS):
             return "PC"
     return None
 
@@ -485,12 +515,14 @@ async def run_ram_pipeline(
                 final["model"] = final_model
                 final["brand"] = final_brand
 
+                # form_factor handled separately below: AI often returns raw
+                # phrases (e.g. "Настолен компютър") that need extractor
+                # normalization alongside spec/name/raw context.
                 for k in (
                     "memory_type",
                     "memory_amount",
                     "memory_speed_mhz",
                     "latency",
-                    "form_factor",
                 ):
                     if k in ai_data and ai_data.get(k) is not None:
                         final[k] = ai_data.get(k)
@@ -546,11 +578,18 @@ async def run_ram_pipeline(
                     lat_val = _spec_value(["latency", "cl", "timing", "тайминг"])
                     final["latency"] = _extract_latency(lat_val, raw)
 
-                if final.get("form_factor") is None:
-                    ff_val = _spec_value(["form", "dimm", "module", "тип"])
-                    final["form_factor"] = _extract_form_factor(
-                        ff_val, parsed.get("name"), raw
-                    )
+                # Priority: spec value ("Подходящо за: Настолни компютри"),
+                # then AI hint, then product name. Raw page text intentionally
+                # excluded — sidebars / cross-sell mentions of "Лаптоп"
+                # otherwise override valid desktop classifications.
+                ff_val = _spec_value(
+                    ["form", "dimm", "module", "тип", "подходящо"]
+                )
+                final["form_factor"] = _extract_form_factor(
+                    ff_val,
+                    ai_data.get("form_factor"),
+                    parsed.get("name"),
+                )
 
                 if final.get("memory_type") is not None:
                     final["memory_type"] = _normalize_memory_type(
@@ -566,10 +605,9 @@ async def run_ram_pipeline(
                     )
                 if final.get("latency") is not None:
                     final["latency"] = _normalize_latency(final.get("latency"))
-                if final.get("form_factor") is not None:
-                    final["form_factor"] = _extract_form_factor(
-                        final.get("form_factor")
-                    )
+                # form_factor already canonicalized above; re-running the
+                # extractor on a single canonical value previously stripped
+                # it back to None when AI text bypassed token list.
                 if final.get("memory_amount") is None:
                     final["memory_amount"] = _infer_memory_amount_from_parts(
                         raw, specs, parsed.get("name")

@@ -32,6 +32,17 @@ _KNOWN_SSD_BRANDS = [
     "MSI",
     "HP",
     "SYNOLOGY",
+    "TRANSCEND",
+    "TRANSCHEND",
+    "PNY",
+    "PONY",
+    "NETAC",
+    "SANDISK",
+    "DELL",
+    "EMTEC",
+    "FUJITSU",
+    "HIKSEMI",
+    "KINGSPEC",
 ]
 
 
@@ -143,6 +154,8 @@ def _normalize_brand_token(token: str) -> str:
         return "HP"
     if upper == "SYNOLOGY":
         return "Synology"
+    if upper == "PNY":
+        return "PNY"
     return token.title()
 
 
@@ -151,17 +164,23 @@ def _parse_brand_model(title: str):
         return None, None
 
     s = str(title).replace("™", "").replace("®", "")
-    s = re.sub(r"\(.*?\)", "", s)
     s = re.sub(r"[\n\r]", " ", s)
     s = " ".join(s.split())
 
     brand = None
     upper = s.upper()
+    
+    # Search for brand tokens, prefer longer matches first
+    found_matches = []
     for token in _KNOWN_SSD_BRANDS:
         if token in upper:
-            brand = _normalize_brand_token(token)
-            s = re.sub(re.escape(token), "", s, flags=re.IGNORECASE).strip()
-            break
+            found_matches.append((len(token), token))
+    
+    if found_matches:
+        found_matches.sort(reverse=True)
+        best_token = found_matches[0][1]
+        brand = _normalize_brand_token(best_token)
+        s = re.sub(re.escape(best_token), "", s, flags=re.IGNORECASE).strip()
 
     s = re.sub(r"(?i)^SSD\s*", "", s).strip()
     s = re.sub(r"\b\d+(?:[\.,]\d+)?\s*TB\b", "", s, flags=re.IGNORECASE)
@@ -187,7 +206,7 @@ def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
 
 def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
     candidates: list[str] = []
-    for anchor in soup.select("a[data-category='Breadcrumb'], a[href*='/filter/brands/']"):
+    for anchor in soup.select("a[data-category='Breadcrumb']"):
         data_label = anchor.get("data-label")
         if data_label:
             candidates.append(data_label)
@@ -203,6 +222,7 @@ def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
         if normalized:
             return normalized
     return None
+
 
 
 def parse_ssd_page(html: str, url: str) -> dict:

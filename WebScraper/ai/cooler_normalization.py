@@ -32,6 +32,12 @@ def normalize_cooler_brand(value: str | None) -> Optional[str]:
             matches.append((match.start(), normalized))
 
     if not matches:
+        # Fallback to substring match if word boundaries failed
+        for token, normalized in _COOLER_BRAND_MAP.items():
+            if token in upper:
+                matches.append((upper.find(token), normalized))
+
+    if not matches:
         return None
 
     matches.sort()
@@ -152,6 +158,43 @@ def normalize_cooler_model(value: str | None, brand: str | None = None) -> Optio
 
     s = " ".join(s.split()).strip("- ,")
 
+    # --- Round 6: cooler-specific junk patterns ---
+
+    # Reject any value containing underscores (Bulgarian retailer mangling)
+    if "_" in s:
+        return None
+
+    # Strip trailing packaging suffix: /Bulk, /Retail, /OEM, /Tray, /Box
+    s = re.sub(r"\s*/\s*(?:Bulk|Retail|OEM|Tray|Box)\b.*$", "", s, flags=re.IGNORECASE)
+
+    # Strip socket-list segments (LGA\d+ / AM\d+ combinations, Intel/AMD platform tags)
+    _SOCKET_ATOM = r"(?:LGA\s*\d{3,4}(?:-\d)?|AM[0-9](?:\+)?|FM[12](?:\+)?|TR[45]|sTRX?\d|SP[356]|Intel|AMD)"
+    s = re.sub(rf"^\s*{_SOCKET_ATOM}(?:\s*/\s*{_SOCKET_ATOM})*\s*[-,]?\s*", "", s, flags=re.IGNORECASE).strip()
+    s = re.sub(rf"\s*{_SOCKET_ATOM}(?:\s*/\s*{_SOCKET_ATOM})+\s*$", "", s, flags=re.IGNORECASE).strip()
+
+    # Strip trailing .XX.YY color/variant codes (e.g. NH-D15.G2.CH.BK -> NH-D15.G2)
+    _COLOR_DOT_CODES = r"(?:CH|BK|WH|BL|RD|GR|SL|BG|CHROMAX)"
+    while True:
+        new_s = re.sub(rf"\.{_COLOR_DOT_CODES}\s*$", "", s, flags=re.IGNORECASE)
+        if new_s == s:
+            break
+        s = new_s.strip(" .-,")
+
+    # Convert surviving dots between word chars to spaces — NH-D15.G2 -> NH-D15 G2
+    s = re.sub(r"(?<=\w)\.(?=\w)", " ", s)
+
+    s = " ".join(s.split()).strip("- ,/")
+
+    # If empty after socket/packaging strips, reject → name-fallback wins
+    if not s:
+        return None
+    # Single-token hyphen-chain SKU (e.g. remainder after socket strip) → reject
+    tokens_final = s.split()
+    if len(tokens_final) == 1:
+        tok = tokens_final[0]
+        if tok.count("-") >= 2 and any(c.isdigit() for c in tok):
+            return None
+
     junk_tails = (
         r"\bКонтакт\b.*$",
         r"\bАдрес\b.*$",
@@ -259,34 +302,34 @@ def _canonicalize_socket_token(token: str) -> Optional[str]:
 def normalize_cooler_sockets(value) -> Optional[str]:
     if value is None:
         return None
-    if isinstance(value, list):
-        tokens = [str(t) for t in value]
-    else:
-        s = _clean_str(value)
-        if not s:
-            return None
-        tokens = re.split(r"[,/;]", s)
-
+    
     seen: list[str] = []
-    for raw in tokens:
-        canonical = _canonicalize_socket_token(raw)
-        if canonical and canonical not in seen:
-            seen.append(canonical)
-
-    if not seen:
-        # Fallback: scan free-form string for socket patterns
-        if isinstance(value, str):
-            upper = value.upper()
-            # Build regex across all sockets, longest first
-            for canonical in sorted(_VALID_SOCKETS, key=lambda k: -len(k)):
-                pat = re.escape(canonical.upper()).replace(r"\-", r"\s*-\s*")
-                if re.search(r"(?<![A-Z0-9])" + pat + r"(?![A-Z0-9])", upper):
-                    if canonical not in seen:
-                        seen.append(canonical)
+    
+    # Unified approach: convert everything to string and extract all valid tokens
+    text_to_scan = ""
+    if isinstance(value, list):
+        text_to_scan = " ".join(str(t) for t in value)
+    else:
+        text_to_scan = str(value)
+    
+    if not text_to_scan.strip():
+        return None
+        
+    upper = text_to_scan.upper()
+    # Build regex across all sockets, longest first to avoid partial matches (e.g. LGA2011 vs LGA2011-3)
+    for canonical in sorted(_VALID_SOCKETS, key=lambda k: -len(k)):
+        pat = re.escape(canonical.upper()).replace(r"\-", r"\s*-\s*")
+        # Match standalone token
+        if re.search(r"(?<![A-Z0-9])" + pat + r"(?![A-Z0-9])", upper):
+            if canonical not in seen:
+                seen.append(canonical)
 
     if not seen:
         return None
-    return ", ".join(seen)
+    
+    # Return in fixed order for consistency
+    ordered = [s for s in _VALID_SOCKETS if s in seen]
+    return ", ".join(ordered) if ordered else ", ".join(seen)
 
 
 def normalize_cooler_height_mm(value) -> Optional[int]:
@@ -458,18 +501,23 @@ def normalize_cooler_rpm_max(value) -> Optional[int]:
     s = _clean_str(value)
     if not s:
         return None
+    # Strip parenthesized annotations ("(PWM)", "(MAX)", etc.) before any parsing
+    s = re.sub(r"\([^)]*\)", " ", s)
     # Preserve comma-thousands: "2,400" -> "2400" (only when exactly 3 digits follow)
     s = re.sub(r"(\d),(\d{3})(?!\d)", r"\1\2", s)
-    # Strip tolerance markers: "500 - 2400 ± 250 RPM" / "1500 ± 10% RPM"
-    s = re.sub(r"[±~]\s*\d+(?:[.,]\d+)?\s*%?", " ", s)
+    # Normalize tilde variants to hyphen — `~`/`∼`/`～` are RANGE separators, not tolerance
+    s = re.sub(r"[~\u223C\uFF5E]", "-", s)
+    # Strip tolerance markers: "± N(%)" and "+ N(%)" (range now always uses "-")
+    s = re.sub(r"±\s*\d+(?:[.,]\d+)?\s*%?", " ", s)
+    s = re.sub(r"\+\s*\d+(?:[.,]\d+)?\s*%?", " ", s)
     # Remaining commas are decimal separators
     s = s.replace(",", ".")
     # Strip trailing "MAX" / "макс" so single-value ranges like "1500 RPM MAX" parse
     s = re.sub(r"\s*(?:MAX|макс)\.?\s*$", "", s, flags=re.IGNORECASE)
     candidates: list[int] = []
     _RPM_UNIT = r"(?:RPM|об\s*/?\s*мин)"
-    # Ranges: "AAA-BBBB RPM" / "AAA-BBBB об/мин" (take max)
-    for m in re.finditer(rf"(\d{{2,4}})\s*[-–]\s*(\d{{2,5}})\s*{_RPM_UNIT}", s, flags=re.IGNORECASE):
+    # Ranges: "AAA-BBBB RPM" / "AAA-BBBB об/мин" (take max); allow up to 20 non-digit chars between range end and unit
+    for m in re.finditer(rf"(\d{{2,4}})\s*[-–]\s*(\d{{2,5}})(?:\D{{0,20}}?){_RPM_UNIT}", s, flags=re.IGNORECASE):
         candidates.append(int(m.group(2)))
     # "до NNNN RPM" / "до NNNN об/мин"
     for m in re.finditer(rf"до\s*(\d{{2,5}})\s*{_RPM_UNIT}", s, flags=re.IGNORECASE):

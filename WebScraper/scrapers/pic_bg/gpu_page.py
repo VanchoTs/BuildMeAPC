@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from typing import Optional, Tuple
+import re
 
 BGN_PER_EUR = 1.95583
 
@@ -15,7 +16,7 @@ def _first_text(soup, selectors) -> Optional[str]:
 def _parse_price_el(el) -> Optional[float]:
     if el is None:
         return None
-    import re
+    # import re
 
     sup = el.find("sup")
     sup_digits = None
@@ -96,7 +97,7 @@ def _collect_specs(soup: BeautifulSoup) -> dict:
 
 
 def _parse_brand_model(title: str):
-    import re
+    # import re
 
     if not title:
         return None, None, None
@@ -227,6 +228,72 @@ def _parse_brand_model(title: str):
     return chip_brand, model, pcb_manufacturer, pcb_series
 
 
+def _normalize_vendor_token(token: str) -> str:
+    upper = token.upper()
+    if upper == "ASROCK":
+        return "ASRock"
+    if upper in ("MSI", "ASUS", "XFX"):
+        return upper
+    return token.title()
+
+
+def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
+    if not value:
+        return None
+    candidate = re.sub(r"\s+", " ", str(value)).strip()
+    if not candidate:
+        return None
+    upper = candidate.upper()
+    vendors = [
+        "ASUS",
+        "MSI",
+        "GIGABYTE",
+        "ASROCK",
+        "PALIT",
+        "ZOTAC",
+        "PNY",
+        "SAPPHIRE",
+        "POWERCOLOR",
+        "XFX",
+        "INNO3D",
+        "GAINWARD",
+        "EVGA",
+        "GALAX",
+        "KFA2",
+        "COLORFUL",
+        "AORUS",
+        "ACER",
+        "LENOVO",
+        "HP",
+        "DELL",
+    ]
+    for v in vendors:
+        if upper == v or v in upper:
+            return _normalize_vendor_token(v)
+    return None
+
+
+def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
+    candidates: list[str] = []
+    for anchor in soup.select("a[data-category='Breadcrumb']"):
+        data_label = anchor.get("data-label")
+        if data_label:
+            candidates.append(data_label)
+        text = anchor.get_text(" ", strip=True)
+        if text:
+            candidates.append(text)
+        href = anchor.get("href") or ""
+        import re
+        match = re.search(r"/filter/brands/([^/?#]+)", href, flags=re.IGNORECASE)
+        if match:
+            candidates.append(match.group(1).replace("-", " "))
+    for candidate in candidates:
+        normalized = _normalize_breadcrumb_brand_candidate(candidate)
+        if normalized:
+            return normalized
+    return None
+
+
 def parse_gpu_page(html: str, url: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
 
@@ -281,6 +348,9 @@ def parse_gpu_page(html: str, url: str) -> dict:
     price = price_eur if price_eur is not None else price_bgn
 
     brand, model, pcb_manufacturer, pcb_series = _parse_brand_model(name)
+    breadcrumb_brand = _extract_breadcrumb_brand(soup)
+    if breadcrumb_brand:
+        pcb_manufacturer = breadcrumb_brand
 
     return {
         "name": name,

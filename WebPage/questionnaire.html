@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questionnaire - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html"><span>🏠</span> Home</a>
+            <a href="questionnaire.html" class="active"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="login.html" class="btn btn-outline">Login</a>
+            <a href="signup.html" class="btn btn-primary">Sign Up</a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main class="wide-layout">
+            <div class="card">
+                <form id="build-form">
+                    <!-- Step 1: Budget -->
+                    <div class="form-step active" data-step="1">
+                        <h2>Step 1: Budget</h2>
+                        <p style="margin-bottom: 2rem;">What is your target budget for the PC?</p>
+                        <div class="input-group">
+                            <label for="budget">Total Budget (€)</label>
+                            <input type="number" id="budget" name="budget" placeholder="e.g. 1500" required min="500">
+                        </div>
+                        <div style="text-align: right;">
+                            <button type="button" class="btn btn-primary next-btn">Next: Usage</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Usage -->
+                    <div class="form-step" data-step="2">
+                        <h2>Step 2: Primary Usage</h2>
+                        <p style="margin-bottom: 2rem;">What will you mainly use this PC for?</p>
+                        <div class="options-grid">
+                            <div class="option-card" data-value="gaming">
+                                <h3>Gaming</h3>
+                                <p>Prioritizing FPS and graphics quality.</p>
+                            </div>
+                            <div class="option-card" data-value="workstation">
+                                <h3>Workstation</h3>
+                                <p>Video editing, 3D rendering, or coding.</p>
+                            </div>
+                            <div class="option-card" data-value="general">
+                                <h3>General</h3>
+                                <p>Web browsing, office tasks, and media.</p>
+                            </div>
+                        </div>
+                        <input type="hidden" name="usage" id="usage-input" required>
+                        <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                            <button type="button" class="btn btn-outline prev-btn">Back</button>
+                            <button type="button" class="btn btn-primary next-btn">Next: RAM</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: RAM capacity -->
+                    <div class="form-step" data-step="3">
+                        <h2>Step 3: RAM Capacity</h2>
+                        <p style="margin-bottom: 2rem;">How much memory should the build target?</p>
+                        <div class="options-grid" id="ram-options">
+                            <div class="option-card" data-value="16" data-min-budget="500">
+                                <h3>16 GB</h3>
+                                <p>Everyday gaming / office.</p>
+                            </div>
+                            <div class="option-card" data-value="32" data-min-budget="900">
+                                <h3>32 GB</h3>
+                                <p>Modern gaming + multitasking.</p>
+                            </div>
+                            <div class="option-card" data-value="64" data-min-budget="1500">
+                                <h3>64 GB</h3>
+                                <p>Content creation, VMs, heavy workloads.</p>
+                            </div>
+                        </div>
+                        <input type="hidden" name="ramGb" id="ram-input" value="16" required>
+                        <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                            <button type="button" class="btn btn-outline prev-btn">Back</button>
+                            <button type="button" class="btn btn-primary next-btn">Next: Storage</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Storage -->
+                    <div class="form-step" data-step="4">
+                        <h2>Step 4: Storage</h2>
+                        <p style="margin-bottom: 2rem;">How much SSD storage do you need?</p>
+                        <div class="options-grid" id="storage-options">
+                            <div class="option-card" data-value="500" data-min-budget="500">
+                                <h3>500 GB</h3>
+                                <p>Light use, games + essentials.</p>
+                            </div>
+                            <div class="option-card" data-value="1000" data-min-budget="0">
+                                <h3>1 TB</h3>
+                                <p>Balanced — recommended default.</p>
+                            </div>
+                            <div class="option-card" data-value="2000" data-min-budget="1200">
+                                <h3>2 TB</h3>
+                                <p>Large libraries / pro workloads.</p>
+                            </div>
+                            <div class="option-card" data-value="4000" data-min-budget="1800">
+                                <h3>4 TB</h3>
+                                <p>Creators, heavy video / datasets.</p>
+                            </div>
+                        </div>
+                        <input type="hidden" name="storageGb" id="storage-input" value="1000" required>
+                        <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                            <button type="button" class="btn btn-outline prev-btn">Back</button>
+                            <button type="button" class="btn btn-primary next-btn">Next: Resolution</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Resolution (gaming only) -->
+                    <div class="form-step" data-step="5">
+                        <h2>Step 5: Target Resolution / Refresh</h2>
+                        <p style="margin-bottom: 2rem;">What display will this PC drive?</p>
+                        <div class="options-grid">
+                            <div class="option-card" data-value="1080p60">
+                                <h3>1080p @ 60 Hz</h3>
+                            </div>
+                            <div class="option-card" data-value="1080p144">
+                                <h3>1080p @ 144 Hz</h3>
+                            </div>
+                            <div class="option-card" data-value="1440p144">
+                                <h3>1440p @ 144 Hz</h3>
+                            </div>
+                            <div class="option-card" data-value="4k60">
+                                <h3>4K @ 60 Hz</h3>
+                            </div>
+                        </div>
+                        <input type="hidden" name="resolution" id="resolution-input">
+                        <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                            <button type="button" class="btn btn-outline prev-btn">Back</button>
+                            <button type="button" class="btn btn-primary next-btn">Next: Brand Preference</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 6: Brand preference -->
+                    <div class="form-step" data-step="6">
+                        <h2>Step 6: Brand Preference</h2>
+                        <p style="margin-bottom: 2rem;">Prefer a specific CPU / GPU brand? (Optional)</p>
+                        <div class="input-group">
+                            <label>CPU</label>
+                            <div class="options-grid">
+                                <div class="option-card" data-target="cpuBrandPref" data-value="">
+                                    <h3>No preference</h3>
+                                </div>
+                                <div class="option-card" data-target="cpuBrandPref" data-value="AMD">
+                                    <h3>AMD</h3>
+                                </div>
+                                <div class="option-card" data-target="cpuBrandPref" data-value="Intel">
+                                    <h3>Intel</h3>
+                                </div>
+                            </div>
+                            <input type="hidden" name="cpuBrandPref" id="cpu-brand-input" value="">
+                        </div>
+                        <div class="input-group" style="margin-top: 1.5rem;">
+                            <label>GPU</label>
+                            <div class="options-grid">
+                                <div class="option-card" data-target="gpuBrandPref" data-value="">
+                                    <h3>No preference</h3>
+                                </div>
+                                <div class="option-card" data-target="gpuBrandPref" data-value="NVIDIA">
+                                    <h3>NVIDIA</h3>
+                                </div>
+                                <div class="option-card" data-target="gpuBrandPref" data-value="AMD">
+                                    <h3>AMD</h3>
+                                </div>
+                                <div class="option-card" data-target="gpuBrandPref" data-value="Intel">
+                                    <h3>Intel</h3>
+                                </div>
+                            </div>
+                            <input type="hidden" name="gpuBrandPref" id="gpu-brand-input" value="">
+                        </div>
+                        <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                            <button type="button" class="btn btn-outline prev-btn">Back</button>
+                            <button type="button" class="btn btn-primary next-btn">Next: Connectivity</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 7: Wi-Fi flag -->
+                    <div class="form-step" data-step="7">
+                        <h2>Step 7: Connectivity</h2>
+                        <p style="margin-bottom: 2rem;">Do you need a motherboard with built-in Wi-Fi?</p>
+                        <div class="input-group">
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="wifi-input" name="wifiRequired">
+                                Require onboard Wi-Fi
+                            </label>
+                        </div>
+                        <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                            <button type="button" class="btn btn-outline prev-btn">Back</button>
+                            <button type="submit" class="btn btn-primary">Generate Build Recommendations</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="js/formHandler.js"></script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

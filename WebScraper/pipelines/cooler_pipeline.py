@@ -263,7 +263,7 @@ def _looks_like_sku(value: str | None, name: str | None) -> bool:
     (c) R-prefix pattern."""
     if not value or " " in value:
         return False
-    if len(value) < 6:
+    if len(value) < 5:
         return False
     if value.lower() in (name or "").lower():
         return False
@@ -285,6 +285,14 @@ def _looks_like_sku(value: str | None, name: str | None) -> bool:
         last = value.split("-")[-1]
         if last.isalpha() and 2 <= len(last) <= 3:
             return True
+    # (f) short all-caps-alnum, no hyphens, digit-heavy — "BW020", "EY3B001"
+    if ("-" not in value and value.isupper()
+            and 5 <= len(value) <= 10
+            and digits / len(value) >= 0.3):
+        return True
+    # (g) underscore-containing → retailer-mangled form
+    if "_" in value:
+        return True
     return False
 
 
@@ -302,7 +310,14 @@ def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
     )
     s = re.sub(r"\b\d{2,4}(?:\s*/\s*\d{2,4})?\s*V\b[\s_/]*", " ", s, flags=re.IGNORECASE)
     s = re.sub(r"_(?:WITHOUT|WITH|NO)[_\s]+CABLE[_A-Z0-9]*", "", s, flags=re.IGNORECASE)
-    s = " ".join(s.split()).strip("- ,")
+    # Round 6: packaging suffix, socket-list strip, underscore-reject
+    s = re.sub(r"\s*/\s*(?:Bulk|Retail|OEM|Tray|Box)\b.*$", "", s, flags=re.IGNORECASE)
+    _SOCKET_ATOM = r"(?:LGA\s*\d{3,4}(?:-\d)?|AM[0-9](?:\+)?|FM[12](?:\+)?|TR[45]|sTRX?\d|SP[356]|Intel|AMD)"
+    s = re.sub(rf"^\s*{_SOCKET_ATOM}(?:\s*/\s*{_SOCKET_ATOM})*\s*[-,]?\s*", "", s, flags=re.IGNORECASE)
+    s = re.sub(rf"\s*{_SOCKET_ATOM}(?:\s*/\s*{_SOCKET_ATOM})+\s*$", "", s, flags=re.IGNORECASE)
+    if "_" in s:
+        return None
+    s = " ".join(s.split()).strip("- ,/")
     if not s:
         s = raw.strip()
     if len(s) > 50:

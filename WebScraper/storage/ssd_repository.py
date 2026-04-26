@@ -24,6 +24,9 @@ def _normalize_brand(value):
     upper = s.upper()
     if upper in ("NULL", "NONE", "N/A", "UNKNOWN", "UNSPECIFIED"):
         return None
+    # Generic SSD-related tokens that aren't real brands.
+    if upper in ("SSD", "DISK", "DRIVE", "INTERNAL", "EXTERNAL", "NVME", "M.2", "SATA"):
+        return None
     if "WESTERN DIGITAL" in upper or re.fullmatch(r"WD", upper):
         return "Western Digital"
     if "SAMSUNG" in upper:
@@ -70,6 +73,29 @@ def _normalize_brand(value):
         return "HP"
     if "SYNOLOGY" in upper:
         return "Synology"
+    if "SANDISK" in upper:
+        return "SanDisk"
+    if re.fullmatch(r"PNY|PONY", upper):
+        return "PNY"
+    if "TRANSCEND" in upper or "TRANSCHEND" in upper:
+        return "Transcend"
+    if "NETAC" in upper:
+        return "Netac"
+    if "HIKSEMI" in upper or "HIK SEMI" in upper:
+        return "Hiksemi"
+    if "KINGSPEC" in upper or "KING SPEC" in upper:
+        return "KingSpec"
+    if "EMTEC" in upper:
+        return "Emtec"
+    if "FUJITSU" in upper:
+        return "Fujitsu"
+    if re.fullmatch(r"DELL", upper):
+        return "Dell"
+    # Trust upstream pipeline normalization: keep cleaned value for any
+    # non-placeholder brand. Prevents NULL rows when scraper finds a real
+    # brand the repo whitelist doesn't yet recognize (PR review backlog).
+    if len(s) >= 2 and re.search(r"[A-Za-z]", s):
+        return s
     return None
 
 

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html"><span>🏠</span> Home</a>
+            <a href="questionnaire.html"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="login.html" class="btn btn-outline">Login</a>
+            <a href="signup.html" class="btn btn-primary active">Sign Up</a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main>
+            <div class="auth-container">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <h1>Create Account</h1>
+                        <p style="color: var(--text-secondary);">Join our community of PC builders</p>
+                    </div>
+                    <form id="signup-form">
+                        <div class="input-group">
+                            <label for="full-name">Full Name</label>
+                            <input type="text" id="full-name" name="full-name" placeholder="John Doe" required aria-required="true">
+                        </div>
+                        <div class="input-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" placeholder="name@example.com" required aria-required="true">
+                        </div>
+                        <div class="input-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" placeholder="••••••••" required aria-required="true">
+                        </div>
+                        <div class="input-group">
+                            <label for="confirm-password">Confirm Password</label>
+                            <input type="password" id="confirm-password" name="confirm-password" placeholder="••••••••" required aria-required="true">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Create Account</button>
+                    </form>
+                    <div class="auth-footer">
+                        Already have an account? <a href="login.html">Login</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="js/authHandler.js"></script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

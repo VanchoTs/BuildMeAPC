@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <style>
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+        .admin-table th, .admin-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .admin-table th {
+            background-color: var(--surface-accent);
+            color: var(--accent-color);
+        }
+        .role-badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .role-admin { background-color: var(--danger-color); color: white; }
+        .role-writer { background-color: var(--success-color); color: white; }
+        .role-user { background-color: var(--surface-accent); color: var(--text-secondary); }
+
+        .tab-nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background-color: var(--surface-accent);
+        }
+        .tab-btn.active {
+            color: var(--accent-color);
+            background-color: var(--surface-accent);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        .report-card {
+            background-color: var(--surface-accent);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        .report-comment {
+            background-color: var(--surface-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+        .gibberish-flag {
+            color: var(--danger-color);
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html"><span>🏠</span> Home</a>
+            <a href="questionnaire.html"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <!-- Dynamic footer via ui.js -->
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main class="wide-layout">
+            <h1>Admin Panel</h1>
+            
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="users">User Management</button>
+                <button class="tab-btn" data-tab="reports">Build Reports</button>
+            </div>
+
+            <div id="users-tab" class="tab-content active">
+                <p style="color: var(--text-secondary);">Manage user roles and permissions.</p>
+                
+                <div class="filter-bar" style="display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; background-color: var(--surface-accent); padding: 1rem; border-radius: 8px;">
+                    <input type="text" id="user-search" placeholder="Search by name or email..." style="flex: 2; min-width: 200px;">
+                    <select id="user-role-filter" style="flex: 1; min-width: 120px;">
+                        <option value="all">All Roles</option>
+                        <option value="user">User</option>
+                        <option value="writer">Writer</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <select id="user-sort" style="flex: 1; min-width: 150px;">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                </div>
+
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-list-body">
+                        <!-- Users will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="reports-tab" class="tab-content">
+                <p style="color: var(--text-secondary);">User feedback on generated builds.</p>
+                
+                <div class="filter-bar" style="display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; background-color: var(--surface-accent); padding: 1rem; border-radius: 8px;">
+                    <input type="text" id="report-search" placeholder="Search keywords..." style="flex: 2; min-width: 200px;">
+                    <select id="report-sort" style="flex: 1; min-width: 180px;">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="budget_desc">Highest Price</option>
+                        <option value="budget_asc">Lowest Price</option>
+                    </select>
+                </div>
+
+                <div id="reports-list" class="reports-grid" style="margin-top: 2rem;">
+                    <p>Loading reports...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="js/admin.js"></script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>

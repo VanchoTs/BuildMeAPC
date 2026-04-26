@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare Builds - BuildMeAPC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: var(--surface-accent);
+            color: var(--accent-color);
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .spec-name {
+            font-weight: bold;
+            color: var(--text-secondary);
+            width: 20%;
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <a href="index.html" class="logo"><img src="images/logo.png" alt="BuildMeAPC"> BuildMeAPC</a>
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+            <a href="index.html"><span>🏠</span> Home</a>
+            <a href="questionnaire.html" class="active"><span>🛠️</span> Build Now</a>
+            <a href="mylist.html"><span>📋</span> My List</a>
+            <a href="news.html"><span>📰</span> News</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="login.html" class="btn btn-outline">Login</a>
+            <a href="signup.html" class="btn btn-primary">Sign Up</a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <main>
+            <button onclick="window.history.back()" class="btn btn-outline" style="margin-bottom: 2rem;">← Back</button>
+            <h1 style="text-align: center; margin-bottom: 2rem;">Build Comparison</h1>
+            
+            <div id="comparison-container">
+                <!-- Table will be injected here -->
+                <p style="text-align: center;">Loading comparison data...</p>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="js/buildEngine.js"></script>
+    <script type="module" src="js/ui.js"></script>
+</body>
+</html>
