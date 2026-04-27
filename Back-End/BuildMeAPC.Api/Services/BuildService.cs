@@ -29,23 +29,32 @@ namespace BuildMeAPC.Api.Services
             _scorer = scorer;
         }
 
+        /// <summary>
+        /// Main orchestration logic for generating three distinct PC builds (PricePerf, Upgradeability, Quality).
+        /// Implements a 3-pass strategy to balance user requirements with market availability.
+        /// </summary>
         public async Task<IReadOnlyList<BuildDto>> GenerateBuildsAsync(BuildRequest request)
         {
             var results = new List<BuildDto>();
             var usedCpuIds = new HashSet<int>();
             var usedGpuIds = new HashSet<int>();
-            // Tight budgets need looser cap — floor prices (€70 SSD, €17 cooler,
-            // €25 case, €30 PSU, €127 DDR5 RAM) cannibalize small budgets quickly.
+            
+            // Tight budgets need a looser overhead cap because fixed-price components 
+            // (like SSDs or Coolers) take up a larger percentage of the total.
             var hardBudgetCap = request.Budget * (request.Budget < 800 ? 1.12 : 1.05);
+            
+            // Optimization: Skip discrete GPU selection for very low-budget 'general' usage builds.
             bool skipGpu = request.Usage == "general" && request.Budget < 600;
 
             foreach (var (tier, name, desc) in Tiers)
             {
+                // Step 1: Allocate portions of the budget to each component category.
                 var allocation = _allocator.Allocate(request.Budget, request.Usage, tier);
 
                 BuildCombination? combo = null;
 
-                // Pass A: strict — honor requested RAM capacity.
+                // PASS A: Strict - Try to honor the exact RAM capacity requested by the user.
+                // We try three price band multipliers (1.0, 1.5, 2.5) to find candidates.
                 foreach (var mult in new[] { 1.0, 1.5, 2.5 })
                 {
                     _picker.SetBandMultiplier(mult);
@@ -56,14 +65,15 @@ namespace BuildMeAPC.Api.Services
                     if (combo != null) break;
                 }
 
-                // Pass B: adaptive RAM downgrade. 
-                // Gaming/Workstation for PricePerf/Quality must stay >= 16GB.
+                // PASS B: Adaptive RAM Downgrade - If no build was found, try reducing RAM.
+                // This is crucial for builds where the budget can't support high RAM + high GPU.
                 bool canDowngradeBelow16 = tier == BuildTier.Upgradeability || (request.Usage != "gaming" && request.Usage != "workstation");
 
                 if (combo == null)
                 {
                     foreach (var ramTry in AdaptiveRamSequence(request.RamGb))
                     {
+                        // Minimum safety floor: Gaming/Workstation usually requires at least 16GB.
                         if (!canDowngradeBelow16 && ramTry < 16) continue;
 
                         foreach (var mult in new[] { 1.0, 1.5, 2.5 })
@@ -79,7 +89,7 @@ namespace BuildMeAPC.Api.Services
                     }
                 }
 
-                // Pass C: last-resort. Skip if we must stay at 16GB+.
+                // PASS C: Last Resort - Loosen all RAM constraints to return *something*.
                 if (combo == null && canDowngradeBelow16)
                 {
                     foreach (var mult in new[] { 1.0, 1.5, 2.5 })
@@ -93,10 +103,11 @@ namespace BuildMeAPC.Api.Services
                     }
                 }
 
-                _picker.SetBandMultiplier(1.0);
+                _picker.SetBandMultiplier(1.0); // Reset for next tier
 
                 if (combo == null) continue;
 
+                // Track used IDs to maximize variety across the three returned recommendations.
                 usedCpuIds.Add(combo.Cpu.Id);
                 if (combo.Gpu != null) usedGpuIds.Add(combo.Gpu.Id);
 
@@ -106,7 +117,7 @@ namespace BuildMeAPC.Api.Services
             return results;
         }
 
-        // Walk from requested capacity down through halves, then 8GB floor.
+        // Helper to generate a sequence of RAM capacities (e.g., 64 -> 32 -> 16 -> 8).
         private static IEnumerable<int> AdaptiveRamSequence(int requested)
         {
             var seen = new HashSet<int>();
@@ -120,8 +131,11 @@ namespace BuildMeAPC.Api.Services
             if (seen.Add(8)) yield return 8;
         }
 
-        // Greedy nested search: CPU → Mobo → Cooler → Ram → Case → Gpu → Psu → Ssd.
-        // skipGpu branch: no GPU loop, PSU sized from CPU TDP only.
+        /// <summary>
+        /// A greedy nested loop search that validates hardware compatibility at every level.
+        /// The order is strategic: CPU -> Mobo -> Cooler -> RAM -> Case -> GPU -> PSU -> SSD.
+        /// This allows early-exit on socket or physical dimension mismatches.
+        /// </summary>
         private static BuildCombination? FindCompatibleCombination(
             CandidatePool pool,
             HashSet<int> usedCpuIds,

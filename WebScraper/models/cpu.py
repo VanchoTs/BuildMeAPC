@@ -3,6 +3,10 @@ from models.base import Base
 
 
 class CPU(Base):
+    """
+    SQLAlchemy model for Central Processing Units (CPUs).
+    Stores technical specifications like cores, threads, and socket compatibility.
+    """
     __tablename__ = "cpus"
 
     id = Column(Integer, primary_key=True)

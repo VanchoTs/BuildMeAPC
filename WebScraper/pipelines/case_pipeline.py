@@ -1,3 +1,12 @@
+"""
+Case Pipeline Module.
+
+This module provides the scraping and normalization logic for computer cases
+from the pic.bg retailer. It extracts data on physical dimensions, form factor
+compatibility (ATX, ITX, etc.), internal clearance, and front panel I/O ports.
+It integrates deterministic extraction with LLM-based parsing for robust data collection.
+"""
+
 import asyncio
 import json
 import logging
@@ -32,6 +41,9 @@ if not logger.handlers:
 
 
 async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs):
+    """
+    Generic retry wrapper for asynchronous functions.
+    """
     last_exc = None
     for attempt in range(1, attempts + 1):
         try:
@@ -50,6 +62,9 @@ async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs
 
 
 async def accept_cookies(page):
+    """
+    Attempts to click the cookie acceptance button on the retailer's page.
+    """
     try:
         await page.click("button:has-text('Приемам')", timeout=4000)
         await asyncio.sleep(1)
@@ -58,6 +73,10 @@ async def accept_cookies(page):
 
 
 async def collect_case_urls(page) -> list[str]:
+    """
+    Collects all computer case product URLs from the current category page.
+    Handles lazy-loading by scrolling down.
+    """
     await page.wait_for_load_state("networkidle", timeout=60000)
     await asyncio.sleep(2)
 
@@ -81,6 +100,9 @@ async def collect_case_urls(page) -> list[str]:
 
 
 async def get_next_page_button(page, current_page: int):
+    """
+    Locates and returns the button for the next page in the pagination.
+    """
     next_page = current_page + 1
     selector = f"div.pages button.page_link[data-page='{next_page}']"
     btn = page.locator(selector)
@@ -94,47 +116,56 @@ async def get_next_page_button(page, current_page: int):
 
 
 def _normalize_brand(value: str | None) -> Optional[str]:
+    """Wrapper for case brand normalization."""
     return normalize_case_brand(value)
 
 
 def _infer_brand_from_text(*texts: str | None) -> Optional[str]:
+    """Attempts to identify a case brand from a collection of raw strings."""
     joined = " ".join(str(t) for t in texts if t)
     return normalize_case_brand(joined)
 
 
 def _normalize_model(value: str | None, brand: str | None = None) -> Optional[str]:
+    """Wrapper for case model normalization, optionally using brand context."""
     return normalize_case_model(value, brand)
 
 
 def _normalize_case_size(value: str | None) -> Optional[str]:
+    """Wrapper for case size (e.g., Mid Tower) normalization."""
     return normalize_case_size(value)
 
 
 def _normalize_motherboard_form_factors(value) -> Optional[list]:
+    """Wrapper for motherboard compatibility normalization."""
     return normalize_motherboard_form_factors(value)
 
 
 def _normalize_included_fans(value) -> Optional[int]:
+    """Wrapper for included fan count normalization."""
     return normalize_included_fans(value)
 
 
 def _normalize_max_mm(value) -> Optional[int]:
+    """Wrapper for internal clearance (CPU/GPU/PSU) normalization in mm."""
     return normalize_max_mm(value)
 
 
 def _normalize_max_radiator_mm(value) -> Optional[int]:
+    """Wrapper for radiator support normalization."""
     return normalize_max_radiator_mm(value)
 
 
 def _normalize_io_json(value, apply_type_c_default: bool = True) -> Optional[dict]:
+    """Wrapper for front panel I/O port normalization into structured JSON."""
     return normalize_io_json(value, apply_type_c_default=apply_type_c_default)
 
 
 def _looks_like_sku(value: str | None, name: str | None) -> bool:
-    """Manufacturer SKU-style token — reject as user-facing model.
-    (a) no space, >=8 chars, >=30% digits;
-    (b) hyphen-chain (>=3 hyphens + digit);
-    (c) R-prefix pattern (R-XXX-YYY...)."""
+    """
+    Heuristic to identify Manufacturer SKU-style tokens.
+    Rejected as user-facing models because they are often cryptic strings.
+    """
     if not value or " " in value:
         return False
     if len(value) < 6:
@@ -163,9 +194,10 @@ def _looks_like_sku(value: str | None, name: str | None) -> bool:
 
 
 def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
-    """Junk-strip rules applied to the raw value before truncating to 50 chars.
-    Used only when the normalizer returned None (no clean model available).
-    Guarantees non-NULL: if all text strips away, falls back to raw truncated."""
+    """
+    Strips 'junk' words from a raw model string when better normalization fails.
+    Ensures a reasonably clean fallback value.
+    """
     if not raw:
         return None
     s = raw.strip()
@@ -186,6 +218,10 @@ def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
 
 
 def _is_accessory_or_non_case(*texts: str | None) -> bool:
+    """
+    Filters out cables, lighting kits, vertical mounts, and other case accessories.
+    Uses regex patterns to verify if the product is a primary computer case.
+    """
     title = str(texts[0]) if texts else ""
     title_upper = title.upper()
     joined = " ".join(str(t) for t in texts if t).upper()
@@ -265,6 +301,10 @@ _STRONG_CASE_FIELDS = (
 
 
 def _is_low_signal_case_page(parsed: dict, det: dict, final: dict, strong_fields: set[str]) -> bool:
+    """
+    Determines if a page has enough data to be useful.
+    Ensures that records have sufficient motherboard and dimension context.
+    """
     populated = sum(1 for field in _STRONG_CASE_FIELDS if final.get(field) is not None)
     det_strong = sum(1 for field in _STRONG_CASE_FIELDS if field in strong_fields)
     if det_strong >= 3:
@@ -275,6 +315,10 @@ def _is_low_signal_case_page(parsed: dict, det: dict, final: dict, strong_fields
 
 
 def _spec_lookup(specs: dict, *needles: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Searches a dictionary for keys containing specific substrings (needles).
+    Returns the first matching key and value.
+    """
     for needle in needles:
         for key, value in (specs or {}).items():
             if needle in str(key).lower():
@@ -291,6 +335,10 @@ _FAN_BLOCKED_NEEDLES = (
 
 
 def _build_ai_source(specs: dict, raw: str) -> str:
+    """
+    Constructs a condensed string of specifications for AI parsing input.
+    Filters for relevant case keywords (dimensions, compatibility, ports).
+    """
     if specs:
         preferred = (
             "размер",
@@ -330,6 +378,7 @@ def _build_ai_source(specs: dict, raw: str) -> str:
 
 
 def _preprocess_io_value(value: str) -> str:
+    """Cleans I/O port descriptions to improve extraction accuracy."""
     s = str(value)
     s = re.sub(r"(\d+)\s*[-\u2013\u2014]\s*(USB)", r"\1 x \2", s, flags=re.IGNORECASE)
     s = re.sub(
@@ -343,6 +392,10 @@ def _preprocess_io_value(value: str) -> str:
 
 
 def _extract_io_json(specs: dict, raw: str) -> Optional[dict]:
+    """
+    Extracts structured I/O port data from multiple specification fields.
+    Handles deduplication of ports and applies defaults (e.g., for Type-C).
+    """
     all_ports: list[dict] = []
     audio: Optional[bool] = None
     consumed_keys: set[str] = set()
@@ -391,6 +444,10 @@ def _extract_io_json(specs: dict, raw: str) -> Optional[dict]:
 
 
 def _extract_case_data(name: str, specs: dict, raw: str, url: str) -> tuple[dict, set[str]]:
+    """
+    Extracts structured Case data using deterministic logic (regex, lookup tables).
+    Returns the extracted data and a set of 'strong' fields that are high confidence.
+    """
     strong = set()
 
     brand = _infer_brand_from_text(name, raw)
@@ -485,12 +542,23 @@ def _extract_case_data(name: str, specs: dict, raw: str, url: str) -> tuple[dict
 
 
 def _merge_value(field: str, ai_value, det_value, strong_fields: set[str]):
+    """
+    Merges data from AI parsing and deterministic extraction.
+    Prioritizes deterministic values for 'strong' fields.
+    """
     if field in strong_fields and det_value is not None:
         return det_value
     return ai_value if ai_value is not None else det_value
 
 
 async def run_case_pipeline(headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None):
+    """
+    Main entry point for the Case scraper pipeline.
+    1. Collects all product URLs from category pages.
+    2. Navigates to product pages to extract structured specifications.
+    3. Normalizes and merges extracted data.
+    4. Upserts results into the database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {

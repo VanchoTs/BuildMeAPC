@@ -3,6 +3,16 @@ from typing import Optional, Tuple
 import re
 
 def _first_text(soup, selectors) -> Optional[str]:
+    """
+    Returns the stripped text of the first element matching any of the given CSS selectors.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        selectors: List of CSS selector strings to try.
+        
+    Returns:
+        Stripped text if found, otherwise None.
+    """
     for sel in selectors:
         el = soup.select_one(sel)
         if el and el.text and el.text.strip():
@@ -14,6 +24,18 @@ BGN_PER_EUR = 1.95583
 
 
 def _parse_price_el(el) -> Optional[float]:
+    """
+    Parses a price element from the HTML, handling various currency formats and fraction (sup) tags.
+    
+    The function removes non-numeric characters, handles decimal separators (comma/dot),
+    and correctly interprets fractional parts often found in <sup> tags.
+    
+    Args:
+        el: BeautifulSoup element containing price information.
+        
+    Returns:
+        The parsed price as a float, or None if parsing fails.
+    """
     if el is None:
         return None
     # import re
@@ -49,6 +71,17 @@ def _parse_price_el(el) -> Optional[float]:
 
 
 def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Extracts both EUR and BGN prices from the page using common CSS selectors.
+    
+    If EUR price is missing but BGN is present, it calculates EUR using a fixed exchange rate.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        
+    Returns:
+        A tuple of (price_eur, price_bgn).
+    """
     price_eur_el = soup.select_one(".price-euro, .price-eur, .product-price-euro")
     price_bgn_el = soup.select_one(
         ".price-current, .price, .product-price, .price-value"
@@ -64,6 +97,18 @@ def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[floa
 
 
 def _collect_specs(soup: BeautifulSoup) -> dict:
+    """
+    Scrapes technical specifications from tables, definition lists, and list items.
+    
+    Iterates through common HTML structures used for product specs and aggregates
+    them into a dictionary of key-value pairs.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        
+    Returns:
+        A dictionary containing technical specification keys and values.
+    """
     specs: dict[str, str] = {}
 
     def _add(k: str, v: str):
@@ -98,6 +143,23 @@ def _collect_specs(soup: BeautifulSoup) -> dict:
 
 
 def parse_cpu_page(html: str, url: str) -> dict:
+    """
+    Main entry point for parsing a CPU product page.
+    
+    Extracts the product name, brand, model, price, and technical specifications.
+    It combines several extraction strategies:
+    1. Basic metadata (name, price) via CSS selectors.
+    2. Specification dictionary via table/list scraping.
+    3. Raw specification text for LLM processing.
+    4. Heuristic-based brand and model extraction from the title.
+    
+    Args:
+        html: HTML content of the CPU page.
+        url: URL of the page.
+        
+    Returns:
+        A dictionary containing the extracted CPU data.
+    """
     soup = BeautifulSoup(html, "lxml")
 
     name = _first_text(soup, [".product-name", ".product-title", "h1", ".name"]) or ""
@@ -146,6 +208,9 @@ def parse_cpu_page(html: str, url: str) -> dict:
     price = price_eur if price_eur is not None else price_bgn
 
     def _parse_brand_model(title: str):
+        """
+        Internal helper to extract CPU brand and model from the product title using regex.
+        """
         # import re
 
         if not title:
@@ -205,3 +270,4 @@ def parse_cpu_page(html: str, url: str) -> dict:
         "raw_specs": specs_text,
         "specs": specs_dict,
     }
+

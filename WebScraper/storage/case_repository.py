@@ -1,3 +1,13 @@
+"""
+Case Repository Module.
+
+This module manages database interactions for computer Case records.
+It includes normalization logic for brands, models, physical sizes, 
+motherboard compatibility, fan count, radiator support, and clearing
+of internal components (CPU cooler, GPU, PSU). It also standardizes 
+front panel I/O specifications into structured JSON.
+"""
+
 import json
 
 from database.session import SessionLocal
@@ -16,34 +26,42 @@ from ai.case_normalization import (
 
 
 def _normalize_brand(value):
+    """Wrapper for Case brand normalization."""
     return normalize_case_brand(value)
 
 
 def _normalize_model(value, brand=None):
+    """Wrapper for Case model normalization."""
     return normalize_case_model(value, brand=brand)
 
 
 def _normalize_case_size(value):
+    """Wrapper for Case physical size normalization."""
     return normalize_case_size(value)
 
 
 def _normalize_motherboard_form_factors(value):
+    """Wrapper for motherboard form factor support normalization."""
     return normalize_motherboard_form_factors(value)
 
 
 def _normalize_included_fans(value):
+    """Wrapper for pre-installed fan count normalization."""
     return normalize_included_fans(value)
 
 
 def _normalize_max_mm(value):
+    """Wrapper for internal clearance normalization (mm)."""
     return normalize_max_mm(value)
 
 
 def _normalize_max_radiator_mm(value):
+    """Wrapper for liquid cooling radiator support normalization."""
     return normalize_max_radiator_mm(value)
 
 
 def _normalize_io_json(value):
+    """Wrapper for front panel I/O port normalization into structured JSON."""
     if isinstance(value, str):
         try:
             value = json.loads(value)
@@ -53,6 +71,10 @@ def _normalize_io_json(value):
 
 
 def upsert_case(case_data: dict) -> int | None:
+    """
+    Inserts or updates a Case record in the database.
+    Deduplicates based on product URL or a unique combination of model and brand.
+    """
     session = SessionLocal()
     try:
         product_url = _clean_str(case_data.get("url") or case_data.get("product_url"))

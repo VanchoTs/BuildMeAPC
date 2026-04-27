@@ -1,3 +1,13 @@
+"""
+SSD Repository Module.
+
+This module manages database interactions for Solid State Drive (SSD) records.
+It includes detailed normalization logic for brands, models, storage capacity,
+physical sizes (M.2, 2.5", mSATA), interface speeds, and reliability metrics 
+like TBW (Total Bytes Written). It also handles complex deduplication for 
+upserting SSD data.
+"""
+
 import re
 
 from database.session import SessionLocal
@@ -5,6 +15,7 @@ from models.ssd import SSD
 
 
 def _clean_str(value):
+    """Basic string cleaning: strip whitespace and quotes."""
     if value is None:
         return None
     s = str(value).strip()
@@ -16,6 +27,10 @@ def _clean_str(value):
 
 
 def _normalize_brand(value):
+    """
+    Normalizes SSD manufacturer brands (Samsung, Kingston, etc.).
+    Includes a whitelist and trust-upstream logic for recognized brands.
+    """
     if value is None:
         return None
     s = _clean_str(value)
@@ -100,6 +115,7 @@ def _normalize_brand(value):
 
 
 def _normalize_model(value):
+    """Standardizes SSD model names by stripping technical specs and capacity."""
     s = _clean_str(value)
     if not s:
         return None
@@ -124,6 +140,7 @@ def _normalize_model(value):
 
 
 def _normalize_type(value):
+    """Classifies SSDs into M.2 or SATA types."""
     if value is None:
         return None
     s = _clean_str(value)
@@ -138,6 +155,7 @@ def _normalize_type(value):
 
 
 def _normalize_storage_size_gb(value):
+    """Standardizes storage capacity in Gigabytes (GB)."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -165,6 +183,7 @@ def _normalize_storage_size_gb(value):
 
 
 def _normalize_physical_size(value):
+    """Standardizes SSD physical dimensions (e.g., 2280, 2.5")."""
     s = _clean_str(value)
     if not s:
         return None
@@ -184,6 +203,7 @@ def _normalize_physical_size(value):
 
 
 def _normalize_speed_mbps(value):
+    """Standardizes read/write speeds in Megabytes per second (MB/s)."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -208,6 +228,7 @@ def _normalize_speed_mbps(value):
 
 
 def _normalize_interface(value):
+    """Standardizes SSD host interface (e.g., SATA III, PCIe Gen 4 x4)."""
     s = _clean_str(value)
     if not s:
         return None
@@ -231,6 +252,7 @@ def _normalize_interface(value):
 
 
 def _parse_numeric_token(value):
+    """Parses numeric tokens handling various decimal/thousands separators."""
     token = value.strip()
     try:
         if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", token):
@@ -245,6 +267,7 @@ def _parse_numeric_token(value):
 
 
 def _tbw_match_to_tb(number_text, unit_text):
+    """Converts reliability metrics (TBW/PBW) to Terabytes (TB)."""
     value = _parse_numeric_token(number_text)
     if value is None:
         return None
@@ -255,6 +278,7 @@ def _tbw_match_to_tb(number_text, unit_text):
 
 
 def _normalize_tbw_tb(value):
+    """Extracts and standardizes TBW value from various string formats."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -282,6 +306,7 @@ def _normalize_tbw_tb(value):
 
 
 def _normalize_nand_type(value):
+    """Standardizes NAND flash memory types (TLC, QLC, V-NAND, etc.)."""
     s = _clean_str(value)
     if not s:
         return None
@@ -319,6 +344,7 @@ def _normalize_nand_type(value):
 
 
 def _normalize_has_heatsink(value):
+    """Determines if an SSD has an integrated heatsink."""
     if value is None:
         return None
     if isinstance(value, bool):
@@ -337,6 +363,7 @@ def _normalize_has_heatsink(value):
 
 
 def _map_input_to_model(ssd_data: dict) -> dict:
+    """Maps raw scraper dictionary keys to SSD model attributes."""
     for k, v in list(ssd_data.items()):
         if isinstance(v, str):
             ssd_data[k] = _clean_str(v)
@@ -427,6 +454,11 @@ def _map_input_to_model(ssd_data: dict) -> dict:
 
 
 def upsert_ssd(ssd_data: dict):
+    """
+    Inserts or updates an SSD record in the database.
+    Deduplicates based on product URL or a combination of model,
+    brand, storage size, type, interface, and physical size.
+    """
     db = SessionLocal()
     mapped = _map_input_to_model(ssd_data)
     model_val = mapped.get("model")

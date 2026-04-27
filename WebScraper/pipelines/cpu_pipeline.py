@@ -61,6 +61,10 @@ async def accept_cookies(page):
 
 
 async def collect_cpu_urls(page) -> list[str]:
+    """
+    Automates the browser to find all CPU product links on the category page.
+    Includes logic to trigger lazy-loading via scrolling.
+    """
     await page.wait_for_load_state("networkidle", timeout=60000)
     await asyncio.sleep(2)
 
@@ -99,6 +103,14 @@ async def get_next_page_button(page, current_page: int):
 async def run_cpu_pipeline(
     headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None
 ):
+    """
+    The main scraping orchestrator for CPUs. 
+    1. Collects all product URLs.
+    2. Iterates through each URL to extract raw HTML.
+    3. Uses local AI (Mistral 7B) to normalize technical specs.
+    4. Performs deterministic post-processing (socket validation, clock normalization).
+    5. Performs an UPSERT into the PostgreSQL database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {
@@ -220,9 +232,10 @@ async def run_cpu_pipeline(
 
                 parsed = parse_cpu_page(html, url)
 
+                # Step 3: AI-based technical specification extraction.
+                # We prioritize specific keys to stay within the LLM's context window.
                 ai_source = parsed.get("raw_specs") or html
                 try:
-
                     specs = parsed.get("specs") or {}
                     if specs:
                         preferred_keys = (
@@ -264,6 +277,9 @@ async def run_cpu_pipeline(
 
                 final = {}
 
+                # Step 4: Robust inference logic to handle incomplete marketing data.
+                # If the AI failed to identify the model or socket, we attempt to infer it from
+                # the product name, OPN codes, or the URL slug.
                 text_source = " ".join(
                     s
                     for s in [parsed.get("name"), parsed.get("raw_specs"), ai_source]
@@ -587,6 +603,8 @@ async def run_cpu_pipeline(
                     ):
                         final["memory_type"] = None
 
+                # Handle Socket/Memory cross-validation.
+                # Certain sockets (AM5, LGA 1851) mandate specific memory types (DDR5).
                 socket_memory = {
                     "AM4": "DDR4",
                     "AM5": "DDR5",

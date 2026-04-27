@@ -54,6 +54,9 @@ namespace BuildMeAPC.Api.Services
 
         public void SetBandMultiplier(double mult) => _bandMult = mult;
 
+        /// <summary>
+        /// Collects candidate components for each category based on the budget allocation.
+        /// </summary>
         public async Task<CandidatePool> PickAsync(
             BuildRequest req,
             Dictionary<ComponentType, double> allocation,
@@ -79,6 +82,10 @@ namespace BuildMeAPC.Api.Services
             return pool;
         }
 
+        /// <summary>
+        /// Selects CPUs within the allocated price range. 
+        /// Favors X3D models for gaming and ensures iGPU presence for Quality tier.
+        /// </summary>
         private async Task<List<CpuEntity>> PickCpus(
             BuildRequest req, double target, BuildTier tier, bool requireIgpu)
         {
@@ -131,6 +138,10 @@ namespace BuildMeAPC.Api.Services
             return raw.OrderByDescending(Score).Take(Limit).ToList();
         }
 
+        /// <summary>
+        /// Selects GPUs within budget. Favors NVIDIA for workstations (CUDA) 
+        /// and enforces minimum VRAM requirements for modern gaming/productivity.
+        /// </summary>
         private async Task<List<GpuEntity>> PickGpus(
             BuildRequest req, double target, BuildTier tier)
         {
@@ -186,6 +197,10 @@ namespace BuildMeAPC.Api.Services
             return raw.OrderByDescending(Score).Take(Limit).ToList();
         }
 
+        /// <summary>
+        /// Selects motherboards, enforcing Wi-Fi requirements and tier-based chipset logic 
+        /// (e.g., forcing X/Z series for high-end Quality builds).
+        /// </summary>
         private async Task<List<MotherboardEntity>> PickMobos(
             BuildRequest req, double target, BuildTier tier, int totalBudget)
         {
@@ -272,6 +287,10 @@ namespace BuildMeAPC.Api.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Selects SSDs, prioritizing NVMe over SATA for high-budget or Quality builds.
+        /// Implements progressive size fallbacks if the requested capacity is too expensive.
+        /// </summary>
         private async Task<List<SsdEntity>> PickSsds(
             BuildRequest req, double target, int totalBudget, BuildTier tier)
         {
@@ -323,6 +342,10 @@ namespace BuildMeAPC.Api.Services
             return new List<SsdEntity>();
         }
 
+        /// <summary>
+        /// Selects PSUs based on wattage requirements and Quality tier efficiency standards.
+        /// Platinum/Titanium efficiency is forced for the Quality tier.
+        /// </summary>
         private async Task<List<PsuEntity>> PickPsus(
             BuildRequest req, double target, BuildTier tier)
         {
@@ -354,6 +377,9 @@ namespace BuildMeAPC.Api.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Selects cases within budget, ordering by price to keep the build affordable.
+        /// </summary>
         private async Task<List<CaseEntity>> PickCases(BuildRequest req, double target)
         {
             var (lo, hi) = Band(target);
@@ -364,6 +390,10 @@ namespace BuildMeAPC.Api.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Selects CPU coolers, prioritizing TDP capacity for high-end chips 
+        /// and premium brands for the Quality tier.
+        /// </summary>
         private async Task<List<CoolerEntity>> PickCoolers(
             BuildRequest req, double target, BuildTier tier)
         {

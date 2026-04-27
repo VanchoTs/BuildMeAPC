@@ -6,6 +6,9 @@ BGN_PER_EUR = 1.95583
 
 
 def _first_text(soup, selectors) -> Optional[str]:
+    """
+    Returns the stripped text of the first element matching any of the given CSS selectors.
+    """
     for sel in selectors:
         el = soup.select_one(sel)
         if el and el.text and el.text.strip():
@@ -14,6 +17,9 @@ def _first_text(soup, selectors) -> Optional[str]:
 
 
 def _parse_price_el(el) -> Optional[float]:
+    """
+    Parses a price element from the HTML, handling fractional parts in <sup> tags.
+    """
     if el is None:
         return None
     # import re
@@ -48,6 +54,9 @@ def _parse_price_el(el) -> Optional[float]:
 
 
 def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Extracts EUR and BGN prices from the page using common CSS selectors.
+    """
     price_eur_el = soup.select_one(".price-euro, .price-eur, .product-price-euro")
     price_bgn_el = soup.select_one(
         ".price-current, .price, .product-price, .price-value"
@@ -63,6 +72,9 @@ def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[floa
 
 
 def _collect_specs(soup: BeautifulSoup) -> dict:
+    """
+    Aggregates technical specifications from tables, definition lists, and list items.
+    """
     specs: dict[str, str] = {}
 
     def _add(k: str, v: str):
@@ -97,6 +109,15 @@ def _collect_specs(soup: BeautifulSoup) -> dict:
 
 
 def _parse_brand_model(title: str):
+    """
+    Heuristically extracts RAM brand and model from the title, stripping common RAM-related keywords.
+    
+    Args:
+        title: The product name string.
+        
+    Returns:
+        A tuple of (brand, model).
+    """
     # import re
 
     if not title:
@@ -153,6 +174,9 @@ def _parse_brand_model(title: str):
 
 
 def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
+    """
+    Validates if a string candidate matches a known RAM brand.
+    """
     if not value:
         return None
     candidate = re.sub(r"\s+", " ", str(value)).strip()
@@ -187,6 +211,9 @@ def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
 
 
 def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
+    """
+    Extracts the brand from breadcrumb navigation links.
+    """
     candidates: list[str] = []
     for anchor in soup.select("a[data-category='Breadcrumb']"):
         data_label = anchor.get("data-label")
@@ -208,6 +235,9 @@ def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
 
 
 def parse_ram_page(html: str, url: str) -> dict:
+    """
+    Main entry point for parsing a RAM product page.
+    """
     soup = BeautifulSoup(html, "lxml")
 
     name = _first_text(soup, [".product-name", ".product-title", "h1", ".name"]) or ""
@@ -271,3 +301,4 @@ def parse_ram_page(html: str, url: str) -> dict:
         "raw_specs": specs_text,
         "specs": specs_dict,
     }
+

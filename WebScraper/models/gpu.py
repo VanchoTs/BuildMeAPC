@@ -3,6 +3,10 @@ from models.base import Base
 
 
 class GPU(Base):
+    """
+    SQLAlchemy model for Graphics Processing Units (GPUs).
+    Stores both chip specifications (brand) and board-specific data (pcb_manufacturer).
+    """
     __tablename__ = "gpus"
 
     id = Column(Integer, primary_key=True)

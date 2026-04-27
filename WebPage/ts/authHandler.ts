@@ -4,6 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = `http://${window.location.hostname}:5075/api/auth`; 
 
+    /**
+     * Checks if there's a build waiting to be saved from a guest session.
+     * This allows users to start building first, then log in to save their result.
+     */
     async function checkPendingBuild() {
         const pendingBuildStr = localStorage.getItem('pendingBuildToSave');
         if (pendingBuildStr) {

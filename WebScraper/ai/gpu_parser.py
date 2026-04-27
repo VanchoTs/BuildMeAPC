@@ -8,6 +8,10 @@ _llm = None
 
 
 def _get_llm():
+    """
+    Retrieves and caches the LLM instance using the local loader.
+    Raises LLMConfigurationError if the loader fails.
+    """
     global _llm
     if _llm is None:
         try:
@@ -18,6 +22,10 @@ def _get_llm():
 
 
 def _prepare_llm_content(content: str) -> str:
+    """
+    Prepares HTML content for LLM processing by stripping unnecessary tags
+    and selecting relevant specification sections to stay within context limits.
+    """
     max_chars_env = int(os.environ.get("LLM_INPUT_MAX_CHARS", "6000"))
     n_ctx = get_llm_ctx()
     max_chars = min(max_chars_env, max(1000, n_ctx * 3))
@@ -104,6 +112,15 @@ def _prepare_llm_content(content: str) -> str:
 
 
 def parse_gpu(html: str, name: str, price: float, url: str) -> dict:
+    """
+    Parses GPU specifications from HTML content using an LLM.
+    
+    This function:
+    1. Prepares the content by extracting relevant spec text.
+    2. Sends the text to the LLM with a specific GPU extraction prompt.
+    3. Handles raw LLM response, attempting to extract and repair JSON.
+    4. Normalizes the extracted data (clocks, memory types, brands) into a consistent format.
+    """
     content = _prepare_llm_content(html)
 
     if os.environ.get("USE_MOCK_LLM", "false").lower() in ("1", "true", "yes"):

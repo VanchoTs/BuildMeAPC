@@ -128,6 +128,11 @@ def _map_input_to_model(cpu_data: dict) -> dict:
 
 
 def upsert_cpu(cpu_data: dict):
+    """
+    Performs an idempotent update or insert for CPU records.
+    Normalizes the model name and attempts to match existing records, 
+    including legacy naming conventions (e.g., 'i7-14700' vs 'Core i7-14700').
+    """
     db = SessionLocal()
     mapped = _map_input_to_model(cpu_data)
 
@@ -163,6 +168,10 @@ def upsert_cpu(cpu_data: dict):
 
 
 def get_common_memory_type_for_socket(socket: str):
+    """
+    Statistical helper that looks up the most common memory type (DDR4/DDR5) for a given socket.
+    Used for cross-validation when data is missing.
+    """
     if not socket:
         return None
     key = str(socket).upper().strip()
@@ -270,6 +279,10 @@ def _model_base_candidates(model: str) -> list[str]:
 
 
 def get_common_socket_for_model(model: str):
+    """
+    Attempts to predict the socket type based on the model family (e.g., Ryzen 7000 usually = AM5).
+    Uses base candidate matching and frequency analysis of the existing database.
+    """
     if not model:
         return None
     key = str(model).upper().strip()

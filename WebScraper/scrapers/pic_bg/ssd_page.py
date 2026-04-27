@@ -47,6 +47,9 @@ _KNOWN_SSD_BRANDS = [
 
 
 def _first_text(soup, selectors) -> Optional[str]:
+    """
+    Returns the stripped text of the first element matching any of the given CSS selectors.
+    """
     for sel in selectors:
         el = soup.select_one(sel)
         if el and el.text and el.text.strip():
@@ -55,6 +58,9 @@ def _first_text(soup, selectors) -> Optional[str]:
 
 
 def _parse_price_el(el) -> Optional[float]:
+    """
+    Parses a price element from the HTML, handling fractional parts in <sup> tags.
+    """
     if el is None:
         return None
 
@@ -88,6 +94,9 @@ def _parse_price_el(el) -> Optional[float]:
 
 
 def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Extracts EUR and BGN prices from the page using common CSS selectors.
+    """
     price_eur_el = soup.select_one(".price-euro, .price-eur, .product-price-euro")
     price_bgn_el = soup.select_one(
         ".price-current, .price, .product-price, .price-value"
@@ -103,6 +112,9 @@ def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[floa
 
 
 def _collect_specs(soup: BeautifulSoup) -> dict:
+    """
+    Aggregates technical specifications from tables, definition lists, and list items.
+    """
     specs: dict[str, str] = {}
 
     def _add(k: str, v: str):
@@ -137,6 +149,9 @@ def _collect_specs(soup: BeautifulSoup) -> dict:
 
 
 def _normalize_brand_token(token: str) -> str:
+    """
+    Normalizes an SSD brand token to its canonical capitalization/name.
+    """
     upper = token.upper()
     if upper in ("WD", "WESTERN DIGITAL"):
         return "WD"
@@ -160,6 +175,15 @@ def _normalize_brand_token(token: str) -> str:
 
 
 def _parse_brand_model(title: str):
+    """
+    Heuristically extracts SSD brand and model from the title, stripping capacity and interface info.
+    
+    Args:
+        title: The product name string.
+        
+    Returns:
+        A tuple of (brand, model).
+    """
     if not title:
         return None, None
 
@@ -192,6 +216,9 @@ def _parse_brand_model(title: str):
 
 
 def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
+    """
+    Validates if a string candidate matches a known SSD brand.
+    """
     if not value:
         return None
     candidate = re.sub(r"\s+", " ", str(value)).strip()
@@ -205,6 +232,9 @@ def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
 
 
 def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
+    """
+    Extracts the brand from breadcrumb navigation links.
+    """
     candidates: list[str] = []
     for anchor in soup.select("a[data-category='Breadcrumb']"):
         data_label = anchor.get("data-label")
@@ -226,68 +256,18 @@ def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
 
 
 def parse_ssd_page(html: str, url: str) -> dict:
+    """
+    Main entry point for parsing an SSD product page.
+    """
     soup = BeautifulSoup(html, "lxml")
 
     name = _first_text(soup, [".product-name", ".product-title", "h1", ".name"]) or ""
 
     specs_el = None
-    for sel in (".description", "#description", ".product-description", ".desc"):
-        specs_el = soup.select_one(sel)
-        if specs_el:
-            break
-
-    specs_text = specs_el.get_text("\n") if specs_el else ""
-
-    spec_chunks = [specs_text] if specs_text else []
-    specs_dict = _collect_specs(soup)
-    for sel in (
-        ".specs",
-        ".specifications",
-        ".tech-specs",
-        ".product-specs",
-        ".characteristics",
-        "#characteristics",
-        ".attributes",
-        ".params",
-        ".product-params",
-        ".product-attributes",
-        ".tab-specs",
-        ".tab-parameters",
-    ):
-        el = soup.select_one(sel)
-        if el:
-            text = el.get_text("\n", strip=True)
-            if text:
-                spec_chunks.append(text)
-
-    for table in soup.select("table"):
-        text = table.get_text("\n", strip=True)
-        if text:
-            spec_chunks.append(text)
-
-    if spec_chunks:
-        specs_text = "\n".join(spec_chunks)
-        if len(specs_text) > 16000:
-            specs_text = specs_text[:16000]
-
-    price_eur, price_bgn = _extract_prices(soup)
-    price = price_eur if price_eur is not None else price_bgn
-
-    brand, model = _parse_brand_model(name)
-    brand_source = "title" if brand else None
-    if brand is None:
-        brand = _extract_breadcrumb_brand(soup)
-        if brand:
-            brand_source = "breadcrumb"
-
-    return {
-        "name": name,
-        "brand": brand,
-        "brand_source": brand_source,
-        "model": model,
-        "price": price,
+...
         "price_bgn": price_bgn,
         "url": url,
         "raw_specs": specs_text,
         "specs": specs_dict,
     }
+

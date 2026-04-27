@@ -85,6 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Prevents users from selecting high-end RAM or Storage options 
+     * that are mathematically impossible for their entered budget.
+     */
     function applyBudgetLocks() {
         const budget = parseInt((document.getElementById('budget') as HTMLInputElement).value);
         if (isNaN(budget)) return;
@@ -112,6 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * Logic to skip the Resolution step (Step 5) if the user isn't gaming.
+     */
     function nextStep(from: number, dir: 1 | -1): number {
         let s = from + dir;
         const usage = (document.getElementById('usage-input') as HTMLInputElement)?.value;

@@ -193,6 +193,10 @@ export const bgTranslations: Record<string, string> = {
     'Rate limit exceeded. Please wait a while before sending more reports.': 'Лимитът е превишен. Моля, изчакайте малко, преди да изпращате нови доклади.'
 };
 
+/**
+ * Initializes language detection based on browser settings or localStorage.
+ * Triggers the translation engine if Bulgarian is selected.
+ */
 export function initLanguageDetection() {
     const userLang = navigator.language || (navigator as any).userLanguage;
     const isBg = userLang.toLowerCase().startsWith('bg');
@@ -238,6 +242,10 @@ function translateToBg() {
     });
 }
 
+/**
+ * Sets up a MutationObserver to dynamically translate new content added to the DOM.
+ * This ensures that builds generated via AJAX or dynamic cards are translated automatically.
+ */
 function setupMutationObserver() {
     const observer = new MutationObserver((mutations) => {
         let shouldTranslate = false;
@@ -248,6 +256,7 @@ function setupMutationObserver() {
             }
         }
         if (shouldTranslate) {
+            // Disconnect to avoid infinite loop when the translation itself modifies the DOM
             observer.disconnect();
             translateToBg();
             observer.observe(document.body, { childList: true, subtree: true });

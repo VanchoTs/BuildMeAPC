@@ -1,3 +1,12 @@
+"""
+RAM Pipeline Module.
+
+This module provides the scraping and normalization logic for RAM modules
+from the pic.bg retailer. It handles browser navigation, URL collection, 
+and specification extraction for memory type, amount, speed, and form factor.
+It combines deterministic extraction with AI parsing for high-fidelity records.
+"""
+
 import asyncio
 import json
 import logging
@@ -20,6 +29,9 @@ if not logger.handlers:
 
 
 async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs):
+    """
+    Generic retry wrapper for asynchronous functions.
+    """
     last_exc = None
     for attempt in range(1, attempts + 1):
         try:
@@ -38,6 +50,9 @@ async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs
 
 
 async def accept_cookies(page):
+    """
+    Attempts to click the cookie acceptance button on the retailer's page.
+    """
     try:
         await page.click("button:has-text('Приемам')", timeout=4000)
         await asyncio.sleep(1)
@@ -46,6 +61,10 @@ async def accept_cookies(page):
 
 
 async def collect_ram_urls(page) -> list[str]:
+    """
+    Collects all RAM product URLs from the current category page.
+    Uses scrolling to ensure all items are loaded.
+    """
     await page.wait_for_load_state("networkidle", timeout=60000)
     await asyncio.sleep(2)
 
@@ -67,6 +86,9 @@ async def collect_ram_urls(page) -> list[str]:
 
 
 async def get_next_page_button(page, current_page: int):
+    """
+    Locates and returns the button for the next page in the pagination.
+    """
     next_page = current_page + 1
     selector = f"div.pages button.page_link[data-page='{next_page}']"
     btn = page.locator(selector)
@@ -80,6 +102,10 @@ async def get_next_page_button(page, current_page: int):
 
 
 def _normalize_brand(value: str | None) -> Optional[str]:
+    """
+    Normalizes RAM brand names to a canonical form.
+    Handles brand-specific variations (e.g., XPG -> ADATA).
+    """
     if not value:
         return None
     s = str(value).strip()
@@ -116,6 +142,10 @@ def _normalize_brand(value: str | None) -> Optional[str]:
 
 
 def _normalize_model(value: str | None) -> Optional[str]:
+    """
+    Cleans RAM model strings by removing technical specs (DDR, MHz, GB)
+    that are captured in other fields.
+    """
     if not value:
         return None
     s = str(value).strip()
@@ -137,6 +167,7 @@ def _normalize_model(value: str | None) -> Optional[str]:
 
 
 def _infer_brand_from_text(text: str | None) -> Optional[str]:
+    """Attempts to identify a RAM brand from a raw string."""
     if not text:
         return None
     upper = str(text).upper()
@@ -168,6 +199,7 @@ def _infer_brand_from_text(text: str | None) -> Optional[str]:
 
 
 def _normalize_memory_type(value: str | None) -> Optional[str]:
+    """Extracts memory type (e.g., DDR4, DDR5) from string."""
     if not value:
         return None
     s = str(value).upper()
@@ -176,6 +208,7 @@ def _normalize_memory_type(value: str | None) -> Optional[str]:
 
 
 def _normalize_latency(value: str | None) -> Optional[str]:
+    """Extracts CAS latency (CL) from string."""
     if not value:
         return None
     s = str(value).upper()
@@ -186,6 +219,7 @@ def _normalize_latency(value: str | None) -> Optional[str]:
 
 
 def _normalize_speed(value: str | None) -> Optional[int]:
+    """Normalizes RAM frequency (MHz) to an integer."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -200,6 +234,10 @@ def _normalize_speed(value: str | None) -> Optional[int]:
 
 
 def _extract_memory_amount(*texts: str | None) -> Optional[str]:
+    """
+    Extracts memory capacity (e.g., 2x8GB, 1x16GB) from a list of strings.
+    Uses regex patterns to identify quantity and per-stick capacity.
+    """
     for text in texts:
         if not text:
             continue
@@ -224,6 +262,7 @@ def _extract_memory_amount(*texts: str | None) -> Optional[str]:
 def _infer_memory_amount_from_parts(
     raw: str, specs: dict, name: str | None
 ) -> Optional[str]:
+    """Infers memory capacity by scanning various parts of the page content."""
     texts = [raw, name] + list((specs or {}).values())
     joined = " ".join([t for t in texts if t])
     m = re.search(r"\b(\d+)\s*[x×*]\s*(\d+)\s*G(?:B)?\b", joined, flags=re.IGNORECASE)
@@ -236,6 +275,7 @@ def _infer_memory_amount_from_parts(
 
 
 def _extract_memory_amount_from_url(url: str | None) -> Optional[str]:
+    """Attempts to extract memory capacity from the URL slug."""
     if not url:
         return None
     slug = str(url).rstrip("/").split("/")[-1].replace("-", " ")
@@ -243,6 +283,7 @@ def _extract_memory_amount_from_url(url: str | None) -> Optional[str]:
 
 
 def _extract_memory_speed(*texts: str | None) -> Optional[int]:
+    """Extracts memory speed (MHz) from a list of strings."""
     for text in texts:
         if not text:
             continue
@@ -271,6 +312,7 @@ def _extract_memory_speed(*texts: str | None) -> Optional[int]:
 
 
 def _extract_latency(*texts: str | None) -> Optional[str]:
+    """Extracts CAS latency (CL) from a list of strings."""
     for text in texts:
         if not text:
             continue
@@ -281,6 +323,10 @@ def _extract_latency(*texts: str | None) -> Optional[str]:
 
 
 def _extract_form_factor(*texts: str | None) -> Optional[str]:
+    """
+    Classifies RAM into Laptop (SO-DIMM) or PC (DIMM) form factors.
+    Uses token matching with Bulgarian support.
+    """
     # Per-input early return: caller passes inputs in priority order
     # (spec value first, then AI hint, then product name, then raw). The first
     # input that yields a classification wins. This prevents cross-sell /
@@ -323,6 +369,9 @@ def _extract_form_factor(*texts: str | None) -> Optional[str]:
 
 
 def _build_ai_source(specs: dict, raw: str) -> str:
+    """
+    Condenses specification data for AI parsing to stay within token limits.
+    """
     if specs:
         preferred = (
             "memory",
@@ -361,6 +410,13 @@ def _build_ai_source(specs: dict, raw: str) -> str:
 async def run_ram_pipeline(
     headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None
 ):
+    """
+    Main entry point for the RAM scraper pipeline.
+    1. Navigates category pages and collects product URLs.
+    2. Processes each URL to extract and normalize memory specifications.
+    3. Merges deterministic and AI-based results.
+    4. Upserts data to the database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {

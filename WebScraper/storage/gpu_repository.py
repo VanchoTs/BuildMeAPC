@@ -1,3 +1,12 @@
+"""
+GPU Repository Module.
+
+This module manages database interactions for GPU records. It includes logic
+for normalizing GPU specifications (brand, manufacturer, model) and 
+frequency-based inference logic to predict missing fields like memory type 
+or interface based on established patterns for specific models in the database.
+"""
+
 from database.session import SessionLocal
 from models.gpu import GPU
 from sqlalchemy import func
@@ -8,6 +17,7 @@ _model_interface_cache = {}
 
 
 def _clean_str(value):
+    """Basic string cleaning: strip whitespace and quotes."""
     if value is None:
         return None
     s = str(value).strip()
@@ -19,6 +29,7 @@ def _clean_str(value):
 
 
 def _normalize_brand(value):
+    """Normalizes the primary GPU chip designer (NVIDIA, AMD, Intel)."""
     if value is None:
         return None
     s = str(value).strip().upper()
@@ -32,6 +43,7 @@ def _normalize_brand(value):
 
 
 def _normalize_pcb_manufacturer(value):
+    """Normalizes the brand of the actual graphics card manufacturer (ASUS, MSI, etc.)."""
     if value is None:
         return None
     s = str(value).strip()
@@ -62,6 +74,10 @@ def _normalize_pcb_manufacturer(value):
 
 
 def _normalize_model(value):
+    """
+    Normalizes GPU model names into a canonical form (e.g., 'GeForce RTX 3060').
+    Removes trademark symbols and standardizes prefixes for NVIDIA, AMD, and Intel.
+    """
     if value is None:
         return None
     s = str(value).strip()
@@ -147,6 +163,7 @@ def _normalize_model(value):
 
 
 def _map_input_to_model(gpu_data: dict) -> dict:
+    """Maps raw scraper dictionary keys to the GPU model attributes."""
     for k, v in list(gpu_data.items()):
         if isinstance(v, str):
             gpu_data[k] = _clean_str(v)
@@ -213,6 +230,11 @@ def _map_input_to_model(gpu_data: dict) -> dict:
 
 
 def upsert_gpu(gpu_data: dict):
+    """
+    Inserts or updates a GPU record in the database.
+    Deduplicates based on product URL or a combination of model,
+    manufacturer, series, and VRAM capacity.
+    """
     db = SessionLocal()
     mapped = _map_input_to_model(gpu_data)
     model_val = mapped.get("model")
@@ -247,6 +269,7 @@ def upsert_gpu(gpu_data: dict):
 
 
 def _model_candidates(model: str) -> list[str]:
+    """Generates a list of potential model name variations for pattern matching."""
     if not model:
         return []
     s = str(model)
@@ -309,6 +332,10 @@ def _model_candidates(model: str) -> list[str]:
 
 
 def _most_common_value(db, field, patterns):
+    """
+    Finds the most frequent value for a field among records matching certain model patterns.
+    Requires at least 60% frequency to return a value, ensuring high confidence in the inference.
+    """
     counts = {}
     total = 0
     for p in patterns:
@@ -330,6 +357,10 @@ def _most_common_value(db, field, patterns):
 
 
 def get_common_memory_type_for_model(model: str):
+    """
+    Infers the common memory type (e.g., GDDR6) for a GPU model.
+    Uses database frequency analysis to predict the likely memory type.
+    """
     if not model:
         return None
     key = str(model).upper().strip()
@@ -349,6 +380,10 @@ def get_common_memory_type_for_model(model: str):
 
 
 def get_common_interface_for_model(model: str):
+    """
+    Infers the common interface (e.g., PCIe 4.0 x16) for a GPU model.
+    Uses database frequency analysis to predict the likely interface.
+    """
     if not model:
         return None
     key = str(model).upper().strip()

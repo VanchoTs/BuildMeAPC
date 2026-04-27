@@ -35,6 +35,10 @@ namespace BuildMeAPC.Api.Services
 
         private const double PeripheralsBuffer = 0.08;
 
+        /// <summary>
+        /// Calculates the ideal budget distribution across all 8 component categories.
+        /// Accounts for usage patterns (Gaming vs. Workstation) and build tiers (Quality vs. Upgradeability).
+        /// </summary>
         public Dictionary<ComponentType, double> Allocate(
             int totalBudget,
             string usage,
@@ -42,28 +46,33 @@ namespace BuildMeAPC.Api.Services
         {
             var shares = new Dictionary<ComponentType, double>(BaseShares);
 
+            // Step 1: Adjust shares based on the primary usage (e.g., Gaming needs more GPU).
             ApplyUsageMultipliers(shares, usage, out double peripheralsMult);
+            
+            // Step 2: Apply tier-specific biases (e.g., Upgradeability needs a better Motherboard).
             ApplyTierBias(shares, tier);
 
-            // Dynamic shift for high budgets (>= 1500):
-            // Move surplus to CPU/GPU.
+            // Dynamic High-Budget Optimization:
+            // For budgets >= €1500, we move the "surplus" budget from auxiliary parts (Case, Cooler, PSU)
+            // to the core performance components (CPU and GPU).
             if (totalBudget >= 1500)
             {
                 double surplusMult = totalBudget >= 2500 ? 0.45 : 0.25;
                 
                 double cpuSurplus = shares[ComponentType.Cpu] * surplusMult;
-                double gpuSurplus = shares[ComponentType.Gpu] * (surplusMult * 1.2); // Even more for GPU
+                double gpuSurplus = shares[ComponentType.Gpu] * (surplusMult * 1.2); // Extra boost for GPU in high-end builds
 
                 shares[ComponentType.Cpu] += cpuSurplus;
                 shares[ComponentType.Gpu] += gpuSurplus;
                 
-                // Reduce floor components further
+                // Diminishing returns on these components, so we trim their share to fund better silicon.
                 shares[ComponentType.Case] *= 0.75;
                 shares[ComponentType.Cooler] *= 0.75;
                 shares[ComponentType.Psu] *= 0.85;
                 shares[ComponentType.Ssd] *= 0.90;
             }
 
+            // Normalization: Ensure the sum of all shares equals 100% of the total budget.
             var peripheralsShare = PeripheralsBuffer * peripheralsMult;
             var sum = shares.Values.Sum() + peripheralsShare;
             var factor = 1.0 / sum;

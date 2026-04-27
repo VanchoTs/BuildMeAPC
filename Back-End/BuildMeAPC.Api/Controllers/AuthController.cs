@@ -28,6 +28,9 @@ namespace BuildMeAPC.Api.Controllers
             _emailService = emailService;
         }
 
+        /// <summary>
+        /// Registers a new user, hashes their password with BCrypt, and sends a 6-digit verification email.
+        /// </summary>
         [HttpPost("register")]
         public async Task<ActionResult> Register(RegisterRequest request)
         {
@@ -204,6 +207,9 @@ namespace BuildMeAPC.Api.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// Sets the authentication JWT as an HttpOnly, Lax, SameSite cookie to prevent XSS.
+        /// </summary>
         private void SetTokenCookie(string token)
         {
             var cookieOptions = new CookieOptions
@@ -217,6 +223,10 @@ namespace BuildMeAPC.Api.Controllers
             Response.Cookies.Append("authToken", token, cookieOptions);
         }
 
+        /// <summary>
+        /// Generates a JWT token containing User ID, Email, and Role claims.
+        /// Uses HMAC-SHA512 for signing.
+        /// </summary>
         private string CreateToken(User user)
         {
             var claims = new List<Claim>

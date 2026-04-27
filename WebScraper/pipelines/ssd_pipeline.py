@@ -654,6 +654,16 @@ def _merge_value(field: str, ai_value, det_value, strong_fields: set[str]):
 async def run_ssd_pipeline(
     headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None
 ):
+    """
+    Main SSD scraping pipeline.
+    
+    Workflow:
+    1. URL collection: Crawls the SSD category to gather product links.
+    2. Page fetching: Downloads each product's page content.
+    3. Page parsing: Extracts name, price, and raw specifications.
+    4. AI normalization: Sends data to LLM to extract capacity, speed, and interface details.
+    5. Database Upsert: Stores normalized SSD information in the database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {

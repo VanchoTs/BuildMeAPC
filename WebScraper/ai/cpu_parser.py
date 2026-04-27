@@ -18,6 +18,11 @@ def _get_llm():
 
 
 def _prepare_llm_content(content: str) -> str:
+    """
+    Cleans and prepares HTML content for the LLM by removing unnecessary tags (scripts, styles)
+    and selecting only relevant specification sections. This reduces noise and helps fit 
+    the data within the LLM's context window.
+    """
     max_chars_env = int(os.environ.get("LLM_INPUT_MAX_CHARS", "6000"))
     n_ctx = get_llm_ctx()
 
@@ -111,6 +116,25 @@ def _prepare_llm_content(content: str) -> str:
 
 
 def parse_cpu(html: str, name: str, price: float, url: str) -> dict:
+    """
+    Main function to parse CPU data using an AI model.
+    
+    Workflow:
+    1. Prepare content by extracting relevant HTML chunks.
+    2. Call LLM with a specialized CPU prompt.
+    3. Extract JSON from the LLM response.
+    4. Apply 'JSON repair' logic if the output is malformed.
+    5. Normalize extracted fields (brand, socket, cores, clocks, etc.).
+    
+    Args:
+        html: Raw HTML of the product page.
+        name: Product name from the site.
+        price: Product price.
+        url: URL of the product.
+        
+    Returns:
+        A normalized dictionary of CPU attributes.
+    """
     content = _prepare_llm_content(html)
 
     if os.environ.get("USE_MOCK_LLM", "false").lower() in ("1", "true", "yes"):

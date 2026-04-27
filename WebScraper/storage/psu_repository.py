@@ -1,3 +1,12 @@
+"""
+PSU Repository Module.
+
+This module manages database interactions for Power Supply Unit (PSU) records.
+It includes normalization wrappers and logic for deduplicating PSU entries
+based on product URL or a combination of brand, model, power wattage, 
+physical size, certificate, and modularity.
+"""
+
 import re
 
 from database.session import SessionLocal
@@ -15,38 +24,51 @@ from ai.psu_normalization import (
 )
 
 def _normalize_brand(value):
+    """Wrapper for PSU brand normalization."""
     return normalize_psu_brand(value)
 
 
 def _normalize_model(value):
+    """Wrapper for PSU model normalization."""
     return normalize_psu_model(value)
 
 
 def _normalize_physical_size(value):
+    """Wrapper for PSU physical size (form factor) normalization."""
     return normalize_psu_physical_size(value)
 
 
 def _normalize_power_w(value):
+    """Wrapper for PSU power wattage normalization."""
     return normalize_psu_power_w(value)
 
 
 def _normalize_efficiency(value):
+    """Wrapper for PSU efficiency normalization."""
     return normalize_psu_efficiency(value)
 
 
 def _normalize_certificate(value):
+    """Wrapper for PSU 80 Plus certificate normalization."""
     return normalize_psu_certificate(value)
 
 
 def _normalize_modularity(value):
+    """Wrapper for PSU modularity (Full, Semi, Non) normalization."""
     return normalize_psu_modularity(value)
 
 
 def _normalize_fan_size_mm(value):
+    """Wrapper for PSU fan size normalization."""
     return normalize_psu_fan_size_mm(value)
 
 
 def upsert_psu(psu_data: dict):
+    """
+    Inserts or updates a PSU record in the database.
+    Deduplicates based on product URL or a unique combination of brand,
+    model, and key technical specifications.
+    """
     session = SessionLocal()
     try:
         product_url = _clean_str(psu_data.get("url") or psu_data.get("product_url"))

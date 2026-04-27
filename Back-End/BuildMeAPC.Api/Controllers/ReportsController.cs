@@ -23,6 +23,10 @@ namespace BuildMeAPC.Api.Controllers
             _emailService = emailService;
         }
 
+        /// <summary>
+        /// Allows users to report issues with generated builds.
+        /// Includes spam protection: verified emails only, deduplication, and rate limiting.
+        /// </summary>
         [HttpPost]
         public async Task<IActionResult> ReportBuild([FromBody] ReportRequest request)
         {
@@ -205,6 +209,10 @@ namespace BuildMeAPC.Api.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// Heuristic-based detector to identify low-quality or bot-generated comments.
+        /// Checks for length, character repetition, vowel presence, and word complexity.
+        /// </summary>
         private bool DetectGibberish(string text)
         {
             if (text.Length < 10) return true;

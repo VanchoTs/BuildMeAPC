@@ -8,6 +8,10 @@ namespace BuildMeAPC.Api.Services
         private const double GamingReference = 4500.0;
         private const double WorkstationReference = 1800.0;
 
+        /// <summary>
+        /// Calculates normalized 0-100 scores for Gaming, Workstation, and Value.
+        /// Gaming is GPU-centric, Workstation is CPU/RAM-centric, and Value is a function of performance per euro.
+        /// </summary>
         public BuildScoresDto Score(BuildCombination combo)
         {
             var gpuPower = (combo.Gpu?.VramGb ?? 0) * (combo.Gpu?.TdpW ?? 0);

@@ -3,6 +3,10 @@ from models.base import Base
 
 
 class RAM(Base):
+    """
+    SQLAlchemy model for Random Access Memory (RAM).
+    Tracks speed, latency, and form factor (DIMM vs SODIMM).
+    """
     __tablename__ = "rams"
 
     id = Column(Integer, primary_key=True)

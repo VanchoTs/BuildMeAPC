@@ -335,6 +335,16 @@ def _strip_series_from_model(model: str | None, series: str | None) -> Optional[
 async def run_gpu_pipeline(
     headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None
 ):
+    """
+    Main GPU scraping pipeline.
+    
+    Workflow:
+    1. URL collection: Crawls the GPU category to gather all individual product URLs.
+    2. Page fetching: Navigates to each collected URL.
+    3. Page parsing: Extracts raw HTML and specification tables from the product page.
+    4. AI normalization: Sends raw specs to the LLM to extract structured fields.
+    5. Database Upsert: Maps and stores normalized GPU data into the database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {

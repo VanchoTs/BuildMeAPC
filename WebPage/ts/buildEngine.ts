@@ -158,6 +158,10 @@ function getCoreSpecs(build: Build): string {
     return specs.join(' • ');
 }
 
+/**
+ * Renders the build recommendations into the UI cards.
+ * Includes event listeners for viewing details, saving, and PDF export.
+ */
 function renderResults(container: HTMLElement, builds: Build[]) {
     container.innerHTML = '';
     builds.forEach(build => {
@@ -331,6 +335,11 @@ async function saveBuild(build: Build) {
     }
 }
 
+/**
+ * Generates a PDF document for a specific build by cloning the DOM element,
+ * stripping interactive elements (buttons), and applying print-friendly styles.
+ * Uses html2pdf.js for client-side generation.
+ */
 function downloadPDF(build: Build, elementToClone: HTMLElement) {
     if (!elementToClone) return;
     

@@ -18,6 +18,10 @@ namespace BuildMeAPC.Api.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Retrieves a list of users with optional filtering and sorting.
+        /// Admin-only access.
+        /// </summary>
         [HttpGet("users")]
         public async Task<ActionResult<IEnumerable<object>>> GetUsers(
             [FromQuery] string? search, 
@@ -51,10 +55,13 @@ namespace BuildMeAPC.Api.Controllers
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Updates a user's role. Prevents administrators from demoting themselves.
+        /// </summary>
         [HttpPatch("users/{id}/role")]
         public async Task<IActionResult> UpdateRole(int id, [FromBody] string newRole)
         {
-            // Prevent self-modification
+            // Security: Prevent self-modification to ensure at least one admin remains
             var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (currentUserId == id.ToString())
             {
@@ -79,10 +86,13 @@ namespace BuildMeAPC.Api.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// Deletes a user account. Prevents administrators from deleting themselves.
+        /// </summary>
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            // Prevent self-deletion
+            // Security: Prevent self-deletion
             var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (currentUserId == id.ToString())
             {

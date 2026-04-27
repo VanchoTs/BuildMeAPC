@@ -3,6 +3,10 @@ from models.base import Base
 
 
 class Motherboard(Base):
+    """
+    SQLAlchemy model for Motherboards.
+    Uses a JSON column for flexible storage of I/O ports and expansion slots.
+    """
     __tablename__ = "motherboards"
 
     id = Column(Integer, primary_key=True)

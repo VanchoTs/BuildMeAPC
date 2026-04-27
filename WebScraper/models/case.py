@@ -4,6 +4,10 @@ from models.base import Base
 
 
 class Case(Base):
+    """
+    SQLAlchemy model for Computer Cases.
+    Tracks physical clearance for GPUs, coolers, and radiator support.
+    """
     __tablename__ = "cases"
 
     id = Column(Integer, primary_key=True)

@@ -4,6 +4,10 @@ from models.base import Base
 
 
 class SSD(Base):
+    """
+    SQLAlchemy model for Solid State Drives (SSDs).
+    Includes performance metrics (read/write speeds) and endurance (TBW).
+    """
     __tablename__ = "ssds"
 
     id = Column(Integer, primary_key=True)

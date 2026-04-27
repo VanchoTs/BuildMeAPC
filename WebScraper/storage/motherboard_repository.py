@@ -1,3 +1,13 @@
+"""
+Motherboard Repository Module.
+
+This module manages database interactions for Motherboard records. It includes
+comprehensive normalization for brands, form factors, sockets, chipsets, and
+peripheral interfaces. A key feature is the frequency-based inference logic
+that predicts the correct CPU socket or dominant memory type (DDR4 vs DDR5)
+based on the motherboard's chipset using existing database records.
+"""
+
 from database.session import SessionLocal
 from models.motherboard import Motherboard
 import json
@@ -8,6 +18,7 @@ _chipset_socket_cache = {}
 
 
 def _clean_str(value):
+    """Basic string cleaning: strip whitespace and quotes."""
     if value is None:
         return None
     s = str(value).strip()
@@ -19,6 +30,7 @@ def _clean_str(value):
 
 
 def _normalize_brand(value):
+    """Normalizes motherboard manufacturer brands (ASUS, MSI, GIGABYTE, etc.)."""
     if value is None:
         return None
     s = str(value).strip()
@@ -64,6 +76,7 @@ def _normalize_brand(value):
 
 
 def _infer_brand(model, name, url):
+    """Infers the manufacturer brand from multiple text sources including the URL slug."""
     pool = " ".join([str(x) for x in (model, name, url) if x]).upper()
     if "GIGABYTE" in pool or "-GIGABYTE-" in pool:
         return "GIGABYTE"
@@ -91,6 +104,7 @@ def _infer_brand(model, name, url):
 
 
 def _normalize_form_factor(value):
+    """Standardizes motherboard form factors (ATX, mATX, ITX, etc.)."""
     if value is None:
         return None
     s = str(value).strip()
@@ -120,6 +134,10 @@ def _normalize_form_factor(value):
 
 
 def _normalize_socket(value):
+    """
+    Standardizes CPU socket names (e.g., LGA 1700, AM5).
+    Includes logic to clean up noisy retailer strings.
+    """
     if value is None:
         return None
     s = str(value).strip().upper()
@@ -192,6 +210,7 @@ def _normalize_socket(value):
 
 
 def _normalize_chipset(value):
+    """Extracts and standardizes the motherboard chipset (e.g., B760, X670E)."""
     if value is None:
         return None
     s = str(value).strip().upper()
@@ -225,6 +244,11 @@ def _normalize_chipset(value):
 
 
 def _correct_chipset_alias(chipset, model=None, name=None, url=None, socket=None, memory_type=None):
+    """
+    Handles chipset aliasing and context-aware corrections.
+    For example, standardizes 'H61' to 'H610' or identifies modern AM5 chipsets 
+    that might be mislabeled in legacy patterns.
+    """
     if not chipset:
         return chipset
     c = str(chipset).upper().strip()
@@ -247,6 +271,7 @@ def _correct_chipset_alias(chipset, model=None, name=None, url=None, socket=None
 
 
 def _normalize_memory_type(value):
+    """Extracts supported memory types (DDR4, DDR5) and handles dual-support strings."""
     if value is None:
         return None
     s = str(value).upper()
@@ -260,6 +285,11 @@ def _normalize_memory_type(value):
 
 
 def _normalize_wifi(value):
+    """
+    Standardizes onboard Wi-Fi information.
+    Distinguishes between actual Wi-Fi chips, versioned support (Wi-Fi 6, 7),
+    and mere accessory/antenna points.
+    """
     if not value:
         return "Not present"
     s = str(value).strip()
@@ -325,6 +355,7 @@ def _normalize_wifi(value):
 
 
 def _to_int(value):
+    """Helper to convert various types/formats to an integer."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -336,6 +367,7 @@ def _to_int(value):
 
 
 def _normalize_max_ram_speed(value):
+    """Standardizes maximum RAM frequency in MHz."""
     v = _to_int(value)
     if v is None:
         return None
@@ -345,6 +377,10 @@ def _normalize_max_ram_speed(value):
 
 
 def _normalize_ram_slots(value, explicit: bool = False):
+    """
+    Standardizes the number of RAM slots.
+    Filters out unlikely values and assumes standard pairs (2, 4, 8) unless explicit.
+    """
     v = _to_int(value)
     if v is None:
         return None
@@ -358,6 +394,7 @@ def _normalize_ram_slots(value, explicit: bool = False):
 
 
 def _normalize_m2_version(value):
+    """Identifies the PCIe generation for M.2 slots (Gen3, Gen4, Gen5, etc.)."""
     if not value:
         return None
     s = str(value).upper()
@@ -381,6 +418,7 @@ def _normalize_m2_version(value):
 
 
 def _normalize_m2_slots(value):
+    """Standardizes M.2 slot configuration into a list of count and version objects."""
     if isinstance(value, dict):
         entries = [value]
     elif isinstance(value, list):
@@ -412,6 +450,7 @@ def _normalize_m2_slots(value):
 
 
 def _normalize_pcie_version(value):
+    """Standardizes PCIe slot generation (Gen3, Gen4, etc.)."""
     if not value:
         return None
     s = str(value).upper()
@@ -427,6 +466,7 @@ def _normalize_pcie_version(value):
 
 
 def _normalize_lan_ports(value):
+    """Standardizes the number of Ethernet ports."""
     v = _to_int(value)
     if v is None:
         return None
@@ -440,6 +480,7 @@ def _normalize_lan_ports(value):
 
 
 def _normalize_lan_speed(value):
+    """Standardizes LAN maximum speed (e.g., 2.5 Gb)."""
     if not value:
         return None
     s = str(value).strip().upper().replace("GBE", "GB")
@@ -473,6 +514,7 @@ def _normalize_lan_speed(value):
 
 
 def _normalize_usb_type(value, normalized_version=None):
+    """Standardizes USB port types (Type-A, Type-C)."""
     if not value:
         return "Type-C" if normalized_version == "4.0" else "Type-A"
     s = str(value).strip().upper().replace(" ", "")
@@ -492,6 +534,7 @@ def _normalize_usb_type(value, normalized_version=None):
 
 
 def _normalize_usb_version(value, gen=None):
+    """Standardizes USB versions and generations (e.g., 3.2 Gen2x2)."""
     raw = " ".join([str(x) for x in (value, gen) if x]).strip()
     if not raw:
         return None
@@ -530,6 +573,7 @@ def _normalize_usb_version(value, gen=None):
 
 
 def _normalize_usb_ports(entries):
+    """Standardizes USB port configuration into a list of count, type, and version objects."""
     if not isinstance(entries, list):
         return []
     merged = {}
@@ -552,6 +596,7 @@ def _normalize_usb_ports(entries):
 
 
 def _normalize_pcie_slots(entries):
+    """Standardizes PCIe slot configuration including lane count and generation."""
     if not isinstance(entries, list):
         return []
     merged = {}
@@ -587,6 +632,7 @@ def _normalize_pcie_slots(entries):
 
 
 def _normalize_max_ram_amount(value):
+    """Standardizes maximum supported RAM capacity in GB."""
     v = _to_int(value)
     if v is None:
         return None
@@ -608,6 +654,7 @@ _IO_JSON_KEYS = (
 
 
 def _normalize_io_json(value):
+    """Normalizes the complete I/O specification object into structured JSON."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -642,6 +689,7 @@ def _normalize_io_json(value):
 
 
 def _map_input_to_model(mb_data: dict) -> dict:
+    """Maps raw scraper dictionary keys to Motherboard model attributes."""
     for k, v in list(mb_data.items()):
         if isinstance(v, str):
             mb_data[k] = _clean_str(v)
@@ -723,6 +771,12 @@ def _map_input_to_model(mb_data: dict) -> dict:
 
 
 def upsert_motherboard(mb_data: dict):
+    """
+    Inserts or updates a Motherboard record in the database.
+    Includes frequency-based inference logic: if the socket is missing but the 
+    chipset is known, it queries the database for the most common socket 
+    associated with that chipset to fill the gap.
+    """
     db = SessionLocal()
     mapped = _map_input_to_model(mb_data)
 
@@ -780,6 +834,10 @@ def upsert_motherboard(mb_data: dict):
 
 
 def get_common_socket_for_chipset(chipset: str):
+    """
+    Predicts the CPU socket for a given motherboard chipset.
+    Uses database frequency analysis (e.g., B760 is typically LGA 1700).
+    """
     if not chipset:
         return None
     key = _normalize_chipset(chipset)
@@ -808,6 +866,10 @@ def get_common_socket_for_chipset(chipset: str):
 
 
 def get_dominant_memory_type_for_chipset(chipset: str):
+    """
+    Predicts the dominant memory type (DDR4 vs DDR5) for a given chipset.
+    Returns the most frequent type if it significantly outweighs alternatives.
+    """
     if not chipset:
         return None
     key = _normalize_chipset(chipset)

@@ -9,6 +9,9 @@ _llm = None
 
 
 def _get_llm():
+    """
+    Retrieves and caches the LLM instance using the local loader.
+    """
     global _llm
     if _llm is None:
         try:
@@ -19,6 +22,10 @@ def _get_llm():
 
 
 def _prepare_llm_content(content: str) -> str:
+    """
+    Prepares HTML content for LLM processing by stripping unnecessary tags
+    and selecting relevant specification sections to stay within context limits.
+    """
     max_chars_env = int(os.environ.get("LLM_INPUT_MAX_CHARS", "7000"))
     n_ctx = get_llm_ctx()
     max_chars = min(max_chars_env, max(1200, n_ctx * 3))
@@ -73,6 +80,10 @@ def _prepare_llm_content(content: str) -> str:
 
 
 def _repair_json(s: str) -> str:
+    """
+    Attempts to fix common AI-generated JSON errors such as single quotes,
+    trailing commas, and missing quotes around keys.
+    """
     s = s.replace('""', '"')
     s = re.sub(r"'(\w+)':", r'"\1":', s)
     s = s.replace("'", '"')
@@ -82,6 +93,15 @@ def _repair_json(s: str) -> str:
 
 
 def parse_motherboard(html: str, name: str, price: float, url: str) -> dict:
+    """
+    Parses motherboard specifications from HTML content using an LLM.
+    
+    This function:
+    1. Prepares the content by extracting relevant spec text.
+    2. Sends the text to the LLM with a motherboard extraction prompt.
+    3. Handles and repairs JSON output from the AI.
+    4. Normalizes form factors, memory types, and Wi-Fi versioning.
+    """
     content = _prepare_llm_content(html)
 
     if os.environ.get("USE_MOCK_LLM", "false").lower() in ("1", "true", "yes"):

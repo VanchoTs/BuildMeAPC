@@ -4,6 +4,10 @@ from models.base import Base
 
 
 class PSU(Base):
+    """
+    SQLAlchemy model for Power Supply Units (PSUs).
+    Stores wattage, efficiency ratings, and modularity type.
+    """
     __tablename__ = "psus"
 
     id = Column(Integer, primary_key=True)

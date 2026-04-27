@@ -6,6 +6,16 @@ BGN_PER_EUR = 1.95583
 
 
 def _first_text(soup, selectors) -> Optional[str]:
+    """
+    Returns the stripped text of the first element matching any of the given CSS selectors.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        selectors: List of CSS selector strings to try.
+        
+    Returns:
+        Stripped text if found, otherwise None.
+    """
     for sel in selectors:
         el = soup.select_one(sel)
         if el and el.text and el.text.strip():
@@ -14,6 +24,15 @@ def _first_text(soup, selectors) -> Optional[str]:
 
 
 def _parse_price_el(el) -> Optional[float]:
+    """
+    Parses a price element from the HTML, handling various currency formats and fraction (sup) tags.
+    
+    Args:
+        el: BeautifulSoup element containing price information.
+        
+    Returns:
+        The parsed price as a float, or None if parsing fails.
+    """
     if el is None:
         return None
     # import re
@@ -48,6 +67,15 @@ def _parse_price_el(el) -> Optional[float]:
 
 
 def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Extracts both EUR and BGN prices from the page using common CSS selectors.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        
+    Returns:
+        A tuple of (price_eur, price_bgn).
+    """
     price_eur_el = soup.select_one(".price-euro, .price-eur, .product-price-euro")
     price_bgn_el = soup.select_one(
         ".price-current, .price, .product-price, .price-value"
@@ -63,6 +91,15 @@ def _extract_prices(soup: BeautifulSoup) -> Tuple[Optional[float], Optional[floa
 
 
 def _collect_specs(soup: BeautifulSoup) -> dict:
+    """
+    Scrapes technical specifications from tables, definition lists, and list items.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        
+    Returns:
+        A dictionary containing technical specification keys and values.
+    """
     specs: dict[str, str] = {}
 
     def _add(k: str, v: str):
@@ -97,6 +134,18 @@ def _collect_specs(soup: BeautifulSoup) -> dict:
 
 
 def _parse_brand_model(title: str):
+    """
+    Extracts GPU brand (NVIDIA/AMD/Intel), model (e.g., RTX 4070), 
+    PCB manufacturer (e.g., ASUS), and series (e.g., ROG Strix) from the title.
+    
+    Uses a series of regex patterns to identify common GPU naming conventions.
+    
+    Args:
+        title: The product name string.
+        
+    Returns:
+        A tuple of (chip_brand, model, pcb_manufacturer, pcb_series).
+    """
     # import re
 
     if not title:
@@ -229,6 +278,9 @@ def _parse_brand_model(title: str):
 
 
 def _normalize_vendor_token(token: str) -> str:
+    """
+    Normalizes a vendor token to its canonical capitalization.
+    """
     upper = token.upper()
     if upper == "ASROCK":
         return "ASRock"
@@ -238,6 +290,9 @@ def _normalize_vendor_token(token: str) -> str:
 
 
 def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
+    """
+    Validates if a string candidate from breadcrumbs matches a known GPU vendor.
+    """
     if not value:
         return None
     candidate = re.sub(r"\s+", " ", str(value)).strip()
@@ -274,6 +329,15 @@ def _normalize_breadcrumb_brand_candidate(value: str | None) -> Optional[str]:
 
 
 def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
+    """
+    Attempts to extract the brand/vendor from the breadcrumb navigation.
+    
+    Args:
+        soup: BeautifulSoup object of the page.
+        
+    Returns:
+        The normalized vendor name if found, otherwise None.
+    """
     candidates: list[str] = []
     for anchor in soup.select("a[data-category='Breadcrumb']"):
         data_label = anchor.get("data-label")
@@ -295,6 +359,19 @@ def _extract_breadcrumb_brand(soup: BeautifulSoup) -> Optional[str]:
 
 
 def parse_gpu_page(html: str, url: str) -> dict:
+    """
+    Main entry point for parsing a GPU product page.
+    
+    Extracts GPU metadata and technical specifications, with specialized logic
+    for identifying chip brands (NVIDIA/AMD) and PCB manufacturers.
+    
+    Args:
+        html: HTML content of the GPU page.
+        url: URL of the page.
+        
+    Returns:
+        A dictionary containing the extracted GPU data.
+    """
     soup = BeautifulSoup(html, "lxml")
 
     name = _first_text(soup, [".product-name", ".product-title", "h1", ".name"]) or ""
@@ -364,3 +441,4 @@ def parse_gpu_page(html: str, url: str) -> dict:
         "raw_specs": specs_text,
         "specs": specs_dict,
     }
+

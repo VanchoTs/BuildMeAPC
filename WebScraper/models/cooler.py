@@ -4,6 +4,10 @@ from models.base import Base
 
 
 class Cooler(Base):
+    """
+    SQLAlchemy model for CPU Coolers.
+    Supports both Air and AIO (All-In-One) liquid coolers.
+    """
     __tablename__ = "coolers"
 
     id = Column(Integer, primary_key=True)

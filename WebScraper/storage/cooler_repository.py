@@ -1,3 +1,12 @@
+"""
+Cooler Repository Module.
+
+This module manages database interactions for CPU cooler records.
+It includes normalization logic for cooler types (Air, Liquid),
+socket compatibility, physical dimensions (height), thermal performance (TDP),
+and fan specifications. It handles deduplication during upsert operations.
+"""
+
 from database.session import SessionLocal
 from models.cooler import Cooler
 from ai.cooler_normalization import (
@@ -16,46 +25,61 @@ from ai.cooler_normalization import (
 
 
 def _normalize_brand(value):
+    """Wrapper for Cooler brand normalization."""
     return normalize_cooler_brand(value)
 
 
 def _normalize_model(value):
+    """Wrapper for Cooler model normalization."""
     return normalize_cooler_model(value)
 
 
 def _normalize_cooler_type(value):
+    """Wrapper for Cooler type (Air/Liquid) normalization."""
     return normalize_cooler_type(value)
 
 
 def _normalize_sockets(value):
+    """Wrapper for CPU socket compatibility normalization."""
     return normalize_cooler_sockets(value)
 
 
 def _normalize_height_mm(value):
+    """Wrapper for Cooler height normalization (mm)."""
     return normalize_cooler_height_mm(value)
 
 
 def _normalize_tdp_w(value):
+    """Wrapper for thermal design power (TDP) normalization (Watts)."""
     return normalize_cooler_tdp_w(value)
 
 
 def _normalize_fan_size_mm(value):
+    """Wrapper for fan size normalization (mm)."""
     return normalize_cooler_fan_size_mm(value)
 
 
 def _normalize_fan_count(value):
+    """Wrapper for fan count normalization."""
     return normalize_cooler_fan_count(value)
 
 
 def _normalize_noise_db(value):
+    """Wrapper for fan noise level normalization (dB)."""
     return normalize_cooler_noise_db(value)
 
 
 def _normalize_rpm_max(value):
+    """Wrapper for maximum fan rotation speed (RPM) normalization."""
     return normalize_cooler_rpm_max(value)
 
 
 def upsert_cooler(cooler_data: dict) -> int:
+    """
+    Inserts or updates a CPU cooler record in the database.
+    Deduplicates based on product URL or a unique combination of model,
+    brand, cooler type, and TDP.
+    """
     session = SessionLocal()
     try:
         product_url = _clean_str(cooler_data.get("url") or cooler_data.get("product_url"))

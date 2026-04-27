@@ -1,3 +1,12 @@
+"""
+PSU Pipeline Module.
+
+This module provides the scraping and normalization logic for Power Supply Units (PSUs)
+from the pic.bg retailer. It handles browser navigation, data extraction using
+both deterministic patterns and LLM-based parsing, and prepares the final 
+structured data for database storage.
+"""
+
 import asyncio
 import json
 import logging
@@ -30,6 +39,9 @@ if not logger.handlers:
 
 
 async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs):
+    """
+    Generic retry wrapper for asynchronous functions.
+    """
     last_exc = None
     for attempt in range(1, attempts + 1):
         try:
@@ -48,6 +60,9 @@ async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs
 
 
 async def accept_cookies(page):
+    """
+    Attempts to click the cookie acceptance button on the retailer's page.
+    """
     try:
         await page.click("button:has-text('Приемам')", timeout=4000)
         await asyncio.sleep(1)
@@ -56,6 +71,10 @@ async def accept_cookies(page):
 
 
 async def collect_psu_urls(page) -> list[str]:
+    """
+    Collects all PSU product URLs from the current category page.
+    Uses scrolling to ensure all lazy-loaded items are present.
+    """
     await page.wait_for_load_state("networkidle", timeout=60000)
     await asyncio.sleep(2)
 
@@ -79,6 +98,9 @@ async def collect_psu_urls(page) -> list[str]:
 
 
 async def get_next_page_button(page, current_page: int):
+    """
+    Locates and returns the button for the next page in the pagination.
+    """
     next_page = current_page + 1
     selector = f"div.pages button.page_link[data-page='{next_page}']"
     btn = page.locator(selector)
@@ -92,23 +114,32 @@ async def get_next_page_button(page, current_page: int):
 
 
 def _normalize_brand(value: str | None) -> Optional[str]:
+    """Wrapper for PSU brand normalization."""
     return normalize_psu_brand(value)
 
 
 def _infer_brand_from_text(*texts: str | None) -> Optional[str]:
+    """Attempts to identify a PSU brand from a collection of raw strings."""
     joined = " ".join(str(t) for t in texts if t)
     return normalize_psu_brand(joined)
 
 
 def _normalize_model(value: str | None, brand: str | None = None) -> Optional[str]:
+    """Wrapper for PSU model normalization, optionally using brand context."""
     return normalize_psu_model(value, brand)
 
 
 def _normalize_physical_size(value: str | None) -> Optional[str]:
+    """Wrapper for PSU physical size (form factor) normalization."""
     return normalize_psu_physical_size(value)
 
 
 def _extract_physical_size(*texts: str | None) -> Optional[str]:
+    """
+    Extracts physical size from text, with heuristics to avoid false positives.
+    For example, 'ATX' is only accepted if there is explicit form factor context
+    to distinguish it from generic ATX motherboard support mentions.
+    """
     for index, text in enumerate(texts):
         value = normalize_psu_physical_size(text)
         if value is not None:
@@ -125,10 +156,12 @@ def _extract_physical_size(*texts: str | None) -> Optional[str]:
 
 
 def _normalize_power_w(value) -> Optional[int]:
+    """Wrapper for PSU power wattage normalization."""
     return normalize_psu_power_w(value)
 
 
 def _extract_power_w(*texts: str | None) -> Optional[int]:
+    """Extracts power wattage (in Watts) from a list of strings."""
     for text in texts:
         value = normalize_psu_power_w(text)
         if value is not None:
@@ -137,22 +170,30 @@ def _extract_power_w(*texts: str | None) -> Optional[int]:
 
 
 def _normalize_efficiency(value: str | None) -> Optional[str]:
+    """Wrapper for PSU efficiency percentage normalization."""
     return normalize_psu_efficiency(value)
 
 
 def _normalize_certificate(value: str | None) -> Optional[str]:
+    """Wrapper for 80 Plus certificate normalization."""
     return normalize_psu_certificate(value)
 
 
 def _normalize_modularity(value: str | None) -> Optional[str]:
+    """Wrapper for PSU modularity (Fully, Semi, Non-modular) normalization."""
     return normalize_psu_modularity(value)
 
 
 def _normalize_fan_size_mm(value) -> Optional[int]:
+    """Wrapper for PSU fan size normalization."""
     return normalize_psu_fan_size_mm(value)
 
 
 def _is_accessory_or_non_psu(*texts: str | None) -> bool:
+    """
+    Filters out UPS units, batteries, cables, and other non-PSU items.
+    Uses negative lookahead and specific keyword checks.
+    """
     joined = " ".join(str(t) for t in texts if t).upper()
     if re.search(r"\b(UPS|НЕПРЕКЪСВАЕМО|UNINTERRUPTIBLE)\b", joined):
         return True
@@ -173,6 +214,10 @@ def _is_accessory_or_non_psu(*texts: str | None) -> bool:
 
 
 def _is_low_signal_psu_page(parsed: dict, det: dict, final: dict, strong_fields: set[str]) -> bool:
+    """
+    Determines if a page has enough data to be useful.
+    Prevents junk records from being inserted into the database.
+    """
     specs = parsed.get("specs") or {}
     raw = parsed.get("raw_specs") or ""
     signal_fields = sum(
@@ -210,6 +255,10 @@ def _is_low_signal_psu_page(parsed: dict, det: dict, final: dict, strong_fields:
 
 
 def _spec_lookup(specs: dict, *needles: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Searches a dictionary for keys containing specific substrings (needles).
+    Returns the first matching key and value.
+    """
     # Iterate needles first so earlier needles win even if a later-matching
     # key appears earlier in dict insertion order (e.g. "Сертификати" before
     # "Сертификация 80 Plus").
@@ -221,6 +270,10 @@ def _spec_lookup(specs: dict, *needles: str) -> tuple[Optional[str], Optional[st
 
 
 def _build_ai_source(specs: dict, raw: str) -> str:
+    """
+    Constructs a condensed string of specifications to be used as input for AI parsing.
+    Filters for relevant PSU keywords to stay within token limits.
+    """
     if specs:
         preferred = (
             "модел",
@@ -249,10 +302,10 @@ def _build_ai_source(specs: dict, raw: str) -> str:
 
 
 def _looks_like_sku(value: str | None, name: str | None) -> bool:
-    """Manufacturer SKU-style token — reject as user-facing model.
-    (a) no space, >=8 chars, >=30% digits;
-    (b) hyphen-chain (>=3 hyphens + digit);
-    (c) R-prefix pattern."""
+    """
+    Heuristic to identify Manufacturer SKU-style tokens.
+    Rejected as user-facing models because they are often cryptic strings.
+    """
     if not value or " " in value:
         return False
     if len(value) < 6:
@@ -281,8 +334,10 @@ def _looks_like_sku(value: str | None, name: str | None) -> bool:
 
 
 def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
-    """Junk-strip rules applied to raw value before truncating to 50 chars.
-    Used only when the normalizer returned None. Guarantees non-NULL."""
+    """
+    Strips 'junk' words from a raw model string when better normalization fails.
+    Ensures a reasonably clean fallback value.
+    """
     if not raw:
         return None
     s = raw.strip()
@@ -303,6 +358,10 @@ def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
 
 
 def _extract_psu_data(name: str, specs: dict, raw: str, url: str) -> tuple[dict, set[str]]:
+    """
+    Extracts structured PSU data using deterministic logic (regex, lookup tables).
+    Returns the extracted data and a set of 'strong' fields that are high confidence.
+    """
     strong = set()
 
     brand = _infer_brand_from_text(name, raw)
@@ -361,12 +420,23 @@ def _extract_psu_data(name: str, specs: dict, raw: str, url: str) -> tuple[dict,
 
 
 def _merge_value(field: str, ai_value, det_value, strong_fields: set[str]):
+    """
+    Merges data from AI parsing and deterministic extraction.
+    Prioritizes deterministic values for 'strong' fields.
+    """
     if field in strong_fields and det_value is not None:
         return det_value
     return ai_value if ai_value is not None else det_value
 
 
 async def run_psu_pipeline(headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None):
+    """
+    Main entry point for the PSU scraper pipeline.
+    1. Collects all PSU product URLs from the category pages.
+    2. Navigates to each product URL.
+    3. Extracts and normalizes data using both deterministic and AI methods.
+    4. Upserts the final record into the database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {

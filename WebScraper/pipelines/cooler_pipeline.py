@@ -1,3 +1,12 @@
+"""
+Cooler Pipeline Module.
+
+This module provides the scraping and normalization logic for CPU coolers
+from the pic.bg retailer. It extracts data on cooler type (Air/Liquid),
+socket compatibility, physical dimensions, thermal performance (TDP),
+and fan specifications. It leverages deterministic extraction and LLM parsing.
+"""
+
 import asyncio
 import json
 import logging
@@ -32,6 +41,9 @@ if not logger.handlers:
 
 
 async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs):
+    """
+    Generic retry wrapper for asynchronous functions.
+    """
     last_exc = None
     for attempt in range(1, attempts + 1):
         try:
@@ -50,6 +62,9 @@ async def _retry(coro_fn, *args, attempts: int = 3, delay: float = 1.0, **kwargs
 
 
 async def accept_cookies(page):
+    """
+    Attempts to click the cookie acceptance button on the retailer's page.
+    """
     try:
         await page.click("button:has-text('Приемам')", timeout=4000)
         await asyncio.sleep(1)
@@ -58,6 +73,10 @@ async def accept_cookies(page):
 
 
 async def collect_cooler_urls(page) -> list[str]:
+    """
+    Collects all CPU cooler product URLs from the current category page.
+    Uses scrolling to ensure all lazy-loaded products are captured.
+    """
     await page.wait_for_load_state("networkidle", timeout=60000)
     await asyncio.sleep(2)
 
@@ -81,6 +100,9 @@ async def collect_cooler_urls(page) -> list[str]:
 
 
 async def get_next_page_button(page, current_page: int):
+    """
+    Locates and returns the button for the next page in the pagination.
+    """
     next_page = current_page + 1
     selector = f"div.pages button.page_link[data-page='{next_page}']"
     btn = page.locator(selector)
@@ -94,19 +116,26 @@ async def get_next_page_button(page, current_page: int):
 
 
 def _normalize_brand(value: str | None) -> Optional[str]:
+    """Wrapper for cooler brand normalization."""
     return normalize_cooler_brand(value)
 
 
 def _infer_brand_from_text(*texts: str | None) -> Optional[str]:
+    """Attempts to identify a cooler brand from a collection of strings."""
     joined = " ".join(str(t) for t in texts if t)
     return normalize_cooler_brand(joined)
 
 
 def _normalize_model(value: str | None, brand: str | None = None) -> Optional[str]:
+    """Wrapper for cooler model normalization, optionally using brand context."""
     return normalize_cooler_model(value, brand)
 
 
 def _spec_lookup(specs: dict, *needles: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Searches a dictionary for keys containing specific substrings (needles).
+    Returns the first matching key and value.
+    """
     for needle in needles:
         for key, value in (specs or {}).items():
             if needle in str(key).lower():
@@ -115,6 +144,10 @@ def _spec_lookup(specs: dict, *needles: str) -> tuple[Optional[str], Optional[st
 
 
 def _build_ai_source(specs: dict, raw: str) -> str:
+    """
+    Condenses specification data for AI parsing input.
+    Filters for relevant cooler keywords (sockets, height, TDP, fans).
+    """
     if specs:
         preferred = (
             "модел",
@@ -150,6 +183,7 @@ def _build_ai_source(specs: dict, raw: str) -> str:
 
 
 def _extract_cooler_type(*texts: str | None) -> Optional[str]:
+    """Extracts cooler type (Air/Liquid) from strings."""
     for text in texts:
         value = normalize_cooler_type(text)
         if value is not None:
@@ -158,6 +192,7 @@ def _extract_cooler_type(*texts: str | None) -> Optional[str]:
 
 
 def _extract_cooler_sockets(*texts: str | None) -> Optional[str]:
+    """Extracts CPU socket compatibility list from strings."""
     for text in texts:
         value = normalize_cooler_sockets(text)
         if value is not None:
@@ -166,6 +201,10 @@ def _extract_cooler_sockets(*texts: str | None) -> Optional[str]:
 
 
 def _extract_cooler_data(name: str, specs: dict, raw: str, url: str) -> tuple[dict, set[str]]:
+    """
+    Extracts structured Cooler data using deterministic logic (regex, lookup tables).
+    Returns the extracted data and a set of 'strong' fields that are high confidence.
+    """
     strong = set()
 
     brand = _infer_brand_from_text(name, raw)
@@ -251,16 +290,20 @@ def _extract_cooler_data(name: str, specs: dict, raw: str, url: str) -> tuple[di
 
 
 def _merge_value(field: str, ai_value, det_value, strong_fields: set[str]):
+    """
+    Merges AI-parsed results and deterministic extraction.
+    Prioritizes deterministic values for 'strong' fields.
+    """
     if field in strong_fields and det_value is not None:
         return det_value
     return ai_value if ai_value is not None else det_value
 
 
 def _looks_like_sku(value: str | None, name: str | None) -> bool:
-    """Manufacturer SKU-style token — reject as user-facing model.
-    (a) no space, >=8 chars, >=30% digits;
-    (b) hyphen-chain (>=3 hyphens + digit);
-    (c) R-prefix pattern."""
+    """
+    Heuristic to identify Manufacturer SKU-style tokens.
+    Rejected as user-facing models because they are often cryptic strings.
+    """
     if not value or " " in value:
         return False
     if len(value) < 5:
@@ -297,8 +340,10 @@ def _looks_like_sku(value: str | None, name: str | None) -> bool:
 
 
 def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
-    """Junk-strip rules applied to raw value before truncating to 50 chars.
-    Used only when the normalizer returned None. Guarantees non-NULL."""
+    """
+    Strips 'junk' words from a raw model string when better normalization fails.
+    Ensures a reasonably clean fallback value.
+    """
     if not raw:
         return None
     s = raw.strip()
@@ -326,6 +371,10 @@ def _sanitize_raw_model_fallback(raw: str | None) -> str | None:
 
 
 def _is_accessory_or_non_cooler(*texts: str | None) -> bool:
+    """
+    Filters out thermal paste, cables, standalone case fans, and other accessories.
+    Uses regex patterns to verify if the product is a primary CPU cooler.
+    """
     joined = " ".join(str(t) for t in texts if t).upper()
 
     strong_cooler_evidence = bool(
@@ -365,6 +414,10 @@ def _is_accessory_or_non_cooler(*texts: str | None) -> bool:
 
 
 def _is_low_signal_cooler_page(parsed: dict, det: dict, final: dict, strong_fields: set[str]) -> bool:
+    """
+    Determines if a page has enough data to be useful.
+    Ensures that records have sufficient performance and compatibility context.
+    """
     specs = parsed.get("specs") or {}
     raw = parsed.get("raw_specs") or ""
     signal_fields = sum(
@@ -405,6 +458,13 @@ def _is_low_signal_cooler_page(parsed: dict, det: dict, final: dict, strong_fiel
 
 
 async def run_cooler_pipeline(headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None):
+    """
+    Main entry point for the Cooler scraper pipeline.
+    1. Collects product URLs from category pages.
+    2. Processes each page to extract structured cooler specifications.
+    3. Normalizes and merges results using both deterministic and AI logic.
+    4. Upserts data to the database.
+    """
     async with Browser(headless=headless) as page:
         await page.set_extra_http_headers(
             {

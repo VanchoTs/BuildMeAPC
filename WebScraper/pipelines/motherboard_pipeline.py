@@ -4138,6 +4138,16 @@ def _build_ai_source(specs: dict, raw: str) -> str:
 async def run_motherboard_pipeline(
     headless: bool = False, collect_only: bool = False, page_limit: Optional[int] = None
 ):
+    """
+    Main Motherboard scraping pipeline.
+    
+    Workflow:
+    1. URL collection: Scans the category pages for motherboard product links.
+    2. Page fetching: Loads each product page individually.
+    3. Page parsing: Extracts name, price, and raw specification metadata.
+    4. AI normalization: Uses LLM to structure chipset, socket, and memory compatibility.
+    5. Database Upsert: Validates and saves the motherboard record, handling existing entries.
+    """
     counters = {
         "collected_urls": 0,
         "fetched_pages": 0,

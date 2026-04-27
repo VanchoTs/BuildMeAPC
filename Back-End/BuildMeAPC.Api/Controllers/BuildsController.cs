@@ -24,6 +24,9 @@ namespace BuildMeAPC.Api.Controllers
             _buildService = buildService;
         }
 
+        /// <summary>
+        /// Public endpoint to generate build recommendations based on user requirements.
+        /// </summary>
         [HttpPost("generate")]
         [AllowAnonymous]
         public async Task<ActionResult<IReadOnlyList<BuildDto>>> GenerateBuilds([FromBody] BuildRequest request)
@@ -64,6 +67,10 @@ namespace BuildMeAPC.Api.Controllers
             return Ok(savedBuilds);
         }
 
+        /// <summary>
+        /// Saves a build to the user's personal list. 
+        /// Uses raw SQL to perform a JSONB property check for deduplication.
+        /// </summary>
         [HttpPost]
         public async Task<ActionResult> SaveBuild([FromBody] JsonElement buildData)
         {

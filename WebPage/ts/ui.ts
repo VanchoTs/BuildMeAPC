@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let ultraUnlocked = localStorage.getItem('ultraDarkUnlocked') === 'true';
 
-    // Theme Toggle Logic
+    // Theme Toggle Logic: Supports Dark (default), Light, and Ultra Dark.
     const savedTheme = localStorage.getItem('theme') || 'dark';
     if (savedTheme === 'light') {
         document.body.classList.add('light-theme');
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isLight = (e.target as HTMLInputElement).checked;
             document.body.classList.remove('light-theme', 'ultra-dark-theme');
             
-            // Easter Egg Logic
+            // Easter Egg Logic: Quickly toggling the theme 6 times unlocks "Ultra Dark" mode.
             toggleCount++;
             clearTimeout(toggleTimer);
             

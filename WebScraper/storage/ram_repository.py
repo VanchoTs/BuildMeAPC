@@ -1,9 +1,19 @@
+"""
+RAM Repository Module.
+
+This module manages database interactions for RAM records. It includes
+normalization logic for memory brands, models, types (DDR4, DDR5),
+capacities (e.g., 2x16GB), frequencies, and form factors (DIMM, SO-DIMM).
+It handles deduplication based on product URL or a combination of technical specs.
+"""
+
 from database.session import SessionLocal
 from models.ram import RAM
 import re
 
 
 def _clean_str(value):
+    """Basic string cleaning: strip whitespace and quotes."""
     if value is None:
         return None
     s = str(value).strip()
@@ -15,6 +25,10 @@ def _clean_str(value):
 
 
 def _normalize_brand(value):
+    """
+    Normalizes RAM manufacturer brands (Corsair, G.SKILL, etc.).
+    Standardizes inconsistent retailer naming and handles sub-brands (e.g., XPG -> ADATA).
+    """
     if value is None:
         return None
     s = str(value).strip()
@@ -53,6 +67,10 @@ def _normalize_brand(value):
 
 
 def _normalize_model(value):
+    """
+    Standardizes RAM model names by removing technical specs and form factors
+    which are stored in separate database columns.
+    """
     if value is None:
         return None
     s = str(value).strip()
@@ -71,6 +89,7 @@ def _normalize_model(value):
 
 
 def _normalize_memory_type(value):
+    """Extracts standardized memory type (e.g., DDR4, DDR5)."""
     if value is None:
         return None
     s = str(value).upper()
@@ -79,6 +98,7 @@ def _normalize_memory_type(value):
 
 
 def _normalize_memory_amount(value):
+    """Standardizes memory capacity strings (e.g., 2x8GB)."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -94,6 +114,7 @@ def _normalize_memory_amount(value):
 
 
 def _normalize_latency(value):
+    """Standardizes CAS latency (CL) strings."""
     if value is None:
         return None
     s = str(value).upper()
@@ -104,6 +125,7 @@ def _normalize_latency(value):
 
 
 def _normalize_form_factor(value):
+    """Classifies RAM into Laptop (SO-DIMM) or PC (DIMM) form factors."""
     if not value:
         return None
     s = str(value).upper()
@@ -120,6 +142,7 @@ def _normalize_form_factor(value):
 
 
 def _normalize_speed(value):
+    """Standardizes RAM frequency in MHz."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -132,6 +155,7 @@ def _normalize_speed(value):
 
 
 def _map_input_to_model(ram_data: dict) -> dict:
+    """Maps raw scraper dictionary keys to RAM model attributes."""
     for k, v in list(ram_data.items()):
         if isinstance(v, str):
             ram_data[k] = _clean_str(v)
@@ -160,6 +184,11 @@ def _map_input_to_model(ram_data: dict) -> dict:
 
 
 def upsert_ram(ram_data: dict):
+    """
+    Inserts or updates a RAM record in the database.
+    Deduplicates based on product URL or a unique combination of model,
+    brand, type, capacity, speed, latency, and form factor.
+    """
     db = SessionLocal()
     mapped = _map_input_to_model(ram_data)
     model_val = mapped.get("model")
