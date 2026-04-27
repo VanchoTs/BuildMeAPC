@@ -18,3 +18,8 @@ dependencies = [
     "selenium>=4.35.0",
     "streamlit>=1.50.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
